@@ -3,44 +3,89 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MOCK_DRIVERS, MOCK_MENUS, Driver, Menu } from "../data/mock";
-import "../landing.css"; // Reuse the same styles for now
+import "../landing.css"; // Reuse the same styles
 
 interface CartItem extends Menu {
+  cartItemId: string;
   quantity: number;
+  selectedOptions: Record<string, string>;
+  note: string;
 }
 
 export default function OrderPage() {
-  // Order States
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+  
+  // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   
+  // Customize Modal States
+  const [activeCustomizeMenu, setActiveCustomizeMenu] = useState<Menu | null>(null);
+  const [customizeOptions, setCustomizeOptions] = useState<Record<string, string>>({});
+  const [customizeNote, setCustomizeNote] = useState("");
+
   // Checkout Form States
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
 
-  const addToCart = (menu: Menu) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === menu.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === menu.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      return [...prev, { ...menu, quantity: 1 }];
+  const openCustomizeModal = (menu: Menu) => {
+    setActiveCustomizeMenu(menu);
+    setCustomizeNote("");
+    // Set default options to first choice
+    const defaults: Record<string, string> = {};
+    menu.options?.forEach(opt => {
+      defaults[opt.id] = opt.choices[0];
     });
+    setCustomizeOptions(defaults);
   };
 
-  const removeFromCart = (menuId: string) => {
+  const closeCustomizeModal = () => {
+    setActiveCustomizeMenu(null);
+  };
+
+  const confirmAddToCart = () => {
+    if (!activeCustomizeMenu) return;
+
+    // Create a unique ID based on menu ID + selected options + note
+    // This ensures items with different levels/notes don't stack
+    const optionsString = JSON.stringify(customizeOptions);
+    const cartItemId = `${activeCustomizeMenu.id}_${optionsString}_${customizeNote}`;
+
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === menuId);
-      if (existing && existing.quantity > 1) {
+      const existing = prev.find((item) => item.cartItemId === cartItemId);
+      if (existing) {
         return prev.map((item) =>
-          item.id === menuId ? { ...item, quantity: item.quantity - 1 } : item
+          item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return prev.filter((item) => item.id !== menuId);
+      return [...prev, { 
+        ...activeCustomizeMenu, 
+        cartItemId, 
+        quantity: 1, 
+        selectedOptions: customizeOptions,
+        note: customizeNote
+      }];
+    });
+
+    closeCustomizeModal();
+  };
+
+  const addExistingCartItem = (cartItemId: string) => {
+    setCart((prev) => prev.map((item) =>
+      item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
+    ));
+  };
+
+  const removeCartItem = (cartItemId: string) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.cartItemId === cartItemId);
+      if (existing && existing.quantity > 1) {
+        return prev.map((item) =>
+          item.cartItemId === cartItemId ? { ...item, quantity: item.quantity - 1 } : item
+        );
+      }
+      return prev.filter((item) => item.cartItemId !== cartItemId);
     });
   };
 
@@ -52,14 +97,14 @@ export default function OrderPage() {
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Pesanan Berhasil Dibuat!\nNama: ${customerName}\nTotal: Rp ${totalPrice.toLocaleString('id-ID')}\n(Mockup Only - Belum tersambung ke backend)`);
+    alert(`Pesanan Berhasil Dibuat!\nNama: ${customerName}\nTotal: Rp ${totalPrice.toLocaleString('id-ID')}`);
     setCart([]);
     setIsCheckoutOpen(false);
     setSelectedDriver(null);
   };
 
   return (
-    <div style={{ paddingTop: '80px', minHeight: '100vh' }}>
+    <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
       <div className="background-effects">
         <div className="glow-orb orb-1"></div>
         <div className="glow-orb orb-2"></div>
@@ -145,9 +190,6 @@ export default function OrderPage() {
                   </h3>
                   <div className="menu-grid">
                     {MOCK_MENUS.filter(menu => menu.category === category).map((menu) => {
-                      const cartItem = cart.find(item => item.id === menu.id);
-                      const qty = cartItem ? cartItem.quantity : 0;
-                      
                       return (
                         <div key={menu.id} className="menu-card">
                           <div className="menu-icon">{menu.image}</div>
@@ -156,16 +198,8 @@ export default function OrderPage() {
                             <p>{menu.description}</p>
                             <strong className="price">Rp {menu.price.toLocaleString('id-ID')}</strong>
                           </div>
-                          <div className="menu-actions">
-                            {qty === 0 ? (
-                              <button className="btn btn-add" onClick={() => addToCart(menu)}>+ Tambah</button>
-                            ) : (
-                              <div className="qty-controls">
-                                <button className="btn-qty" onClick={() => removeFromCart(menu.id)}>-</button>
-                                <span>{qty}</span>
-                                <button className="btn-qty" onClick={() => addToCart(menu)}>+</button>
-                              </div>
-                            )}
+                          <div className="menu-actions" style={{ marginTop: '1rem' }}>
+                            <button className="btn btn-add w-full" onClick={() => openCustomizeModal(menu)}>+ Tambah Pesanan</button>
                           </div>
                         </div>
                       );
@@ -178,9 +212,9 @@ export default function OrderPage() {
         </div>
       </section>
 
-      {/* Floating Cart */}
-      {cart.length > 0 && !isCheckoutOpen && (
-        <div className="floating-cart bounce-in" onClick={() => setIsCheckoutOpen(true)}>
+      {/* Floating Cart (Only shows summary and checkout button now, detailed controls are inside modal) */}
+      {cart.length > 0 && !isCheckoutOpen && !activeCustomizeMenu && (
+        <div className="floating-cart bounce-in" onClick={() => setIsCheckoutOpen(true)} style={{ zIndex: 90 }}>
           <div className="cart-info">
             <span className="cart-count">{totalItems} Item</span>
             <span className="cart-total">Rp {totalPrice.toLocaleString('id-ID')}</span>
@@ -189,27 +223,91 @@ export default function OrderPage() {
         </div>
       )}
 
-      {/* Checkout Modal */}
-      {isCheckoutOpen && (
+      {/* Customize Menu Modal */}
+      {activeCustomizeMenu && (
         <div className="modal-overlay">
           <div className="modal-content glass-card fade-in visible">
             <div className="modal-header">
-              <h3>Checkout Pesanan</h3>
+              <h3>Custom Pesanan</h3>
+              <button className="btn-close" onClick={closeCustomizeModal}>×</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '3rem' }}>{activeCustomizeMenu.image}</div>
+                <div>
+                  <h4 style={{ fontSize: '1.2rem', marginBottom: '0.2rem' }}>{activeCustomizeMenu.name}</h4>
+                  <strong style={{ color: 'var(--accent-primary)' }}>Rp {activeCustomizeMenu.price.toLocaleString('id-ID')}</strong>
+                </div>
+              </div>
+
+              {activeCustomizeMenu.options && activeCustomizeMenu.options.map(opt => (
+                <div key={opt.id} className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ fontWeight: 'bold', color: 'white' }}>{opt.name}</label>
+                  <select 
+                    value={customizeOptions[opt.id] || ''} 
+                    onChange={e => setCustomizeOptions({...customizeOptions, [opt.id]: e.target.value})}
+                    style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px', outline: 'none' }}
+                  >
+                    {opt.choices.map(choice => (
+                      <option key={choice} value={choice} style={{ color: 'black' }}>{choice}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+
+              <div className="form-group" style={{ marginBottom: '2rem' }}>
+                <label style={{ fontWeight: 'bold', color: 'white' }}>Catatan Khusus (Opsional)</label>
+                <textarea 
+                  placeholder="Misal: Jangan pakai daun bawang, pedas dikit aja..." 
+                  value={customizeNote} 
+                  onChange={e => setCustomizeNote(e.target.value)}
+                  rows={3}
+                ></textarea>
+              </div>
+
+              <button className="btn btn-primary btn-block" onClick={confirmAddToCart}>
+                Tambahkan ke Keranjang - Rp {activeCustomizeMenu.price.toLocaleString('id-ID')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Modal */}
+      {isCheckoutOpen && (
+        <div className="modal-overlay" style={{ zIndex: 200 }}>
+          <div className="modal-content glass-card fade-in visible">
+            <div className="modal-header">
+              <h3>Keranjang & Checkout</h3>
               <button className="btn-close" onClick={() => setIsCheckoutOpen(false)}>×</button>
             </div>
             
             <div className="modal-body">
               <div className="order-summary">
-                <h4>Ringkasan Pesanan</h4>
-                <ul className="summary-list">
+                <ul className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
                   {cart.map(item => (
-                    <li key={item.id}>
-                      <span>{item.quantity}x {item.name}</span>
-                      <span>Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                    <li key={item.cartItemId} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ color: 'white', fontWeight: 'bold' }}>{item.name}</span>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                            {Object.entries(item.selectedOptions).map(([k, v]) => <span key={k} style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', marginRight: '4px' }}>{v}</span>)}
+                            {item.note && <span style={{ display: 'block', marginTop: '4px', fontStyle: 'italic' }}>"{item.note}"</span>}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', display: 'block' }}>Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                          <div className="qty-controls" style={{ marginTop: '8px', padding: '2px 6px' }}>
+                            <button className="btn-qty" onClick={() => removeCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>-</button>
+                            <span style={{ fontSize: '0.9rem' }}>{item.quantity}</span>
+                            <button className="btn-qty" onClick={() => addExistingCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>+</button>
+                          </div>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>
-                <div className="summary-fees">
+                <div className="summary-fees" style={{ marginTop: '1rem' }}>
                   <div className="fee-row">
                     <span>Ongkos Kirim (Flat)</span>
                     <span>Rp {deliveryFee.toLocaleString('id-ID')}</span>
@@ -225,19 +323,16 @@ export default function OrderPage() {
                 </div>
               </div>
 
-              <form className="checkout-form" onSubmit={handleCheckout}>
-                <h4>Data Pengiriman (Tanpa Registrasi)</h4>
+              <form className="checkout-form" onSubmit={handleCheckout} style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
+                <h4 style={{ marginBottom: '1rem', color: 'white' }}>Data Pengiriman (Tanpa Registrasi)</h4>
                 <div className="form-group">
-                  <label>Nama Lengkap</label>
-                  <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Misal: Budi Kos" />
+                  <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nama Lengkap (Misal: Budi Kos)" />
                 </div>
                 <div className="form-group">
-                  <label>No. WhatsApp</label>
-                  <input type="tel" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="08123456789" />
+                  <input type="tel" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="No. WhatsApp (081234...)" />
                 </div>
                 <div className="form-group">
-                  <label>Alamat Lengkap (Kos/Rumah)</label>
-                  <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Misal: Kos Warna Kuning, Jl. Banjarsari No 10..." rows={3}></textarea>
+                  <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Lengkap (Misal: Kos Warna Kuning, Jl. Banjarsari No 10...)" rows={2}></textarea>
                 </div>
                 
                 <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
