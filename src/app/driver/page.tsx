@@ -75,6 +75,54 @@ export default function DriverDashboard() {
 
   const activeOrders = orders.filter(o => o.status === "pending");
 
+  // Compute Global Summary
+  const globalSummary: Record<string, { name: string, options: string, qty: number }> = {};
+  let totalItemsCount = 0;
+  activeOrders.forEach(order => {
+    order.items.forEach(item => {
+      totalItemsCount += item.qty;
+      const key = `${item.name}-${item.options}`;
+      if (!globalSummary[key]) {
+        globalSummary[key] = { name: item.name, options: item.options, qty: 0 };
+      }
+      globalSummary[key].qty += item.qty;
+    });
+  });
+  const summaryList = Object.values(globalSummary);
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newStatus = e.target.value;
+    
+    // Validations
+    if (newStatus === "menunggu_pesanan") {
+      const allOrdered = activeOrders.every(o => o.items.every(i => i.ordered));
+      if (!allOrdered) {
+        alert("⚠️ Gagal! Masih ada menu yang belum diceklis 'DIPESAN' (Ceklis Kuning).");
+        return;
+      }
+    }
+    
+    if (newStatus === "mengantar_pesanan") {
+      const allPacked = activeOrders.every(o => o.items.every(i => i.packed));
+      if (!allPacked) {
+        alert("⚠️ Gagal! Masih ada menu yang belum diceklis 'DIBUNGKUS' (Ceklis Biru).");
+        return;
+      }
+    }
+    
+    // Double Verification
+    const statusLabels: Record<string, string> = {
+      menunggu_customer: "Open Jastip (Menunggu Customer)",
+      mengantri_di_kasir: "Mengantri di Kasir",
+      menunggu_pesanan: "Menunggu Pesanan Dibungkus",
+      mengantar_pesanan: "Dalam Perjalanan Mengantar"
+    };
+    
+    if (window.confirm(`Anda yakin ingin pindah ke tahap:\n"${statusLabels[newStatus]}"?\n\nPastikan tugas sebelumnya sudah beres!`)) {
+      setDriverStatus(newStatus);
+    }
+  };
+
   const toggleItemState = (orderId: string, itemId: string, type: 'ordered' | 'packed') => {
     // Only allow toggling if in the correct state
     if (type === 'ordered' && driverStatus !== 'mengantri_di_kasir') return;
@@ -185,7 +233,7 @@ export default function DriverDashboard() {
 
               <select 
                 value={driverStatus}
-                onChange={(e) => setDriverStatus(e.target.value)}
+                onChange={handleStatusChange}
                 style={{ 
                   width: '100%', padding: '12px', fontSize: '1rem',
                   background: driverStatus === 'menunggu_customer' ? 'rgba(74, 222, 128, 0.2)' :
@@ -206,6 +254,52 @@ export default function DriverDashboard() {
               </select>
             </div>
           </div>
+
+          {activeOrders.length > 0 && (
+            <>
+              {/* Route Map Preview */}
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <h4 style={{ color: 'white', marginBottom: '1rem' }}>Peta Rute Pengantaran (Preview)</h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', padding: '1rem 0' }}>
+                  <div style={{ position: 'absolute', height: '4px', background: 'var(--glass-border)', left: '20px', right: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 0 }}></div>
+                  
+                  <div style={{ zIndex: 1, textAlign: 'center', background: '#222', padding: '8px', borderRadius: '50%', border: '2px solid #ff5f56' }}>
+                    🏪
+                  </div>
+                  
+                  {activeOrders.map((order, idx) => (
+                    <div key={order.id} style={{ zIndex: 1, textAlign: 'center', background: '#222', padding: '8px 12px', borderRadius: '50px', border: '2px solid #ffbd2e' }}>
+                      <strong style={{ color: 'white', fontSize: '0.9rem' }}>T{idx + 1}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                  <span>Resto (Mie Gacoan)</span>
+                  <span>Titik Terakhir</span>
+                </div>
+              </div>
+
+              {/* Global Menu Summary */}
+              <div style={{ background: 'rgba(255, 189, 46, 0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(255, 189, 46, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid rgba(255, 189, 46, 0.3)', paddingBottom: '0.5rem' }}>
+                  <h4 style={{ color: '#ffbd2e', margin: 0 }}>📋 Rekap Belanjaan Kasir</h4>
+                  <span style={{ background: '#ffbd2e', color: 'black', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>Total: {totalItemsCount} Item</span>
+                </div>
+                
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, columnCount: 2, columnGap: '2rem' }}>
+                  {summaryList.map((item, idx) => (
+                    <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', breakInside: 'avoid' }}>
+                      <div>
+                        <strong style={{ color: 'white' }}>{item.name}</strong>
+                        {item.options && <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.options}</span>}
+                      </div>
+                      <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#4ade80' }}>{item.qty}x</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
 
           {/* Active Batch Order List */}
           <div style={{ background: 'rgba(255,255,255,0.02)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
