@@ -10,6 +10,18 @@ const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
 export default function DriverDashboard() {
   const [driverStatus, setDriverStatus] = useState("menunggu_customer");
   const [walletBalance, setWalletBalance] = useState(150000);
+  const [clientError, setClientError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleErr = (msg: any, url: any, line: any, col: any, error: any) => {
+      setClientError(`${msg} \n ${error?.stack}`);
+      return false;
+    };
+    window.onerror = handleErr;
+    window.addEventListener('unhandledrejection', (event) => {
+      setClientError(`Promise Rejection: ${event.reason?.message} \n ${event.reason?.stack}`);
+    });
+  }, []);
   
   // Modals
   const [reportIssueModalOpen, setReportIssueModalOpen] = useState(false);
@@ -31,53 +43,43 @@ export default function DriverDashboard() {
     }
   }, [countdown, driverStatus]);
 
-  const [orders, setOrders] = useState([
-    {
-      id: "JK-84712",
-      sequence: 1,
-      customerName: "Reza Rahadian",
-      phone: "081234567890",
-      address: "Kos Warna Kuning Jl. Banjarsari No 10, ditaruh di atas gerbang hitam",
-      mapsLink: "https://maps.app.goo.gl/example1",
-      items: [
-        { id: "i1", name: "Mie Hompimpa", options: "Level 2", note: "Pedas sedang", qty: 2, ordered: false, packed: false },
-        { id: "i2", name: "Udang Keju", options: "", note: "", qty: 1, ordered: false, packed: false }
-      ],
-      totalMenuPrice: 32000,
-      deliveryFee: 7000,
-      status: "pending" 
-    },
-    {
-      id: "JK-91283",
-      sequence: 2,
-      customerName: "Anya Geraldine",
-      phone: "089876543210",
-      address: "Apartemen Mutiara Tower B, Titip Resepsionis",
-      mapsLink: "https://maps.app.goo.gl/example2",
-      items: [
-        { id: "i3", name: "Mie Suit", options: "", note: "Jangan pakai daun bawang", qty: 1, ordered: false, packed: false },
-        { id: "i4", name: "Thai Tea", options: "Dingin", note: "", qty: 1, ordered: false, packed: false }
-      ],
-      totalMenuPrice: 20000,
-      deliveryFee: 7000,
-      status: "pending"
-    },
-    {
-      id: "JK-55319",
-      sequence: 3,
-      customerName: "Raditya Dika",
-      phone: "085566778899",
-      address: "Jl. Ngesrep Timur V No 45, rumah pagar putih",
-      mapsLink: "https://maps.app.goo.gl/example3",
-      items: [
-        { id: "i5", name: "Mie Gacoan", options: "Level 0", note: "", qty: 3, ordered: false, packed: false },
-        { id: "i6", name: "Es Gobak Sodor", options: "", note: "", qty: 3, ordered: false, packed: false }
-      ],
-      totalMenuPrice: 63000,
-      deliveryFee: 9000, 
-      status: "pending"
-    }
-  ]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/orders')
+      .then(res => res.json())
+      .then(data => {
+        if (!data || data.error) throw new Error(data?.error || "Error");
+        
+        const mappedOrders = data.map((o: any) => ({
+          id: o.id,
+          sequence: o.sequence,
+          customerName: o.customer_name,
+          phone: o.customer_phone,
+          address: o.dropoff_address,
+          mapsLink: `https://maps.google.com/?q=${encodeURIComponent(o.dropoff_address)}`,
+          items: (o.order_items || []).map((i: any) => ({
+            id: i.id,
+            name: i.menus?.name || 'Unknown',
+            options: i.options || '',
+            note: i.notes || '',
+            qty: i.quantity,
+            ordered: i.ordered || false,
+            packed: i.packed || false
+          })),
+          totalMenuPrice: 0, // Simplified for now
+          deliveryFee: o.delivery_fee,
+          status: o.status
+        }));
+        setOrders(mappedOrders);
+        setLoadingOrders(false);
+      })
+      .catch(err => {
+        console.error("Failed fetching orders:", err);
+        setLoadingOrders(false);
+      });
+  }, []);
 
   const activeOrders = orders.filter(o => o.status === "pending");
 
@@ -209,6 +211,12 @@ export default function DriverDashboard() {
 
   return (
     <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
+      {clientError && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: 'red', color: 'white', zIndex: 9999, padding: '20px', whiteSpace: 'pre-wrap' }}>
+          <h3>CLIENT ERROR DETECTED</h3>
+          {clientError}
+        </div>
+      )}
       <div className="background-effects">
         <div className="glow-orb orb-1"></div>
         <div className="glow-orb orb-2"></div>

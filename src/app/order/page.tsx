@@ -19,12 +19,16 @@ export default function OrderPage() {
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
 
+  // API Data States
+  const [apiDrivers, setApiDrivers] = useState<Driver[]>([]);
+  const [apiMenus, setApiMenus] = useState<Menu[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
   useEffect(() => {
     setMounted(true);
     setHasActiveOrder(localStorage.getItem("jastip_active_order") === "true");
     const history = JSON.parse(localStorage.getItem("jastip_history") || "[]");
     
-    // Default dummy history if empty
     if (history.length === 0) {
       const dummy = [
         { id: "JK-98213", date: "21 Agu 2026, 12:30", driver: "Andi Wijaya", status: "Selesai", rating: 5, total: 45000 }
@@ -34,6 +38,45 @@ export default function OrderPage() {
     } else {
       setOrderHistory(history);
     }
+
+    // Fetch API Data
+    Promise.all([
+      fetch('/api/drivers').then(r => r.json()),
+      fetch('/api/menus').then(r => r.json())
+    ]).then(([driversData, menusData]) => {
+      // Map API drivers to UI format
+      const mappedDrivers = (driversData || []).map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        rating: 5.0,
+        status: d.status === 'pending' ? 'menunggu_customer' : d.status,
+        restoName: "Mie Gacoan Setiabudi",
+        eta: "14:59",
+        slotsFilled: 2,
+        maxSlots: 5
+      }));
+      setApiDrivers(mappedDrivers);
+
+      // Map API menus to UI format (add dummy options for Makanan)
+      const mappedMenus = (menusData || []).filter((m:any) => m.is_available).map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        price: m.price,
+        category: m.category,
+        image: "https://images.unsplash.com/photo-1612927601601-6638404737ce?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        options: m.category === 'Makanan' ? [
+          { id: 'level', name: 'Level Pedas', choices: ['Level 1', 'Level 2', 'Level 3'] }
+        ] : []
+      }));
+      setApiMenus(mappedMenus);
+      setLoadingData(false);
+    }).catch(err => {
+      console.error(err);
+      setApiDrivers(MOCK_DRIVERS); // fallback
+      setApiMenus(MOCK_MENUS); // fallback
+      setLoadingData(false);
+    });
+
   }, []);
 
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -128,7 +171,31 @@ export default function OrderPage() {
     setPaymentStep("qris");
   };
 
-  const simulatePaymentSuccess = () => {
+  const simulatePaymentSuccess = async () => {
+    // Send POST to /api/orders
+    const orderPayload = {
+      customer_name: customerName || "Customer Guest",
+      customer_phone: customerPhone || "08000000000",
+      dropoff_address: customerAddress || "Tembalang",
+      delivery_fee: deliveryFee,
+      sequence: 1, // hardcode for now
+      items: cart.map(c => ({
+        menu_id: c.id,
+        quantity: c.quantity,
+        notes: `${JSON.stringify(c.selectedOptions)} - ${c.note}`
+      }))
+    };
+
+    try {
+      await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload)
+      });
+    } catch (e) {
+      console.error("Order creation failed", e);
+    }
+
     localStorage.setItem("jastip_active_order", "true");
     localStorage.setItem("jastip_last_total", totalPrice.toString());
     setCart([]);
@@ -138,7 +205,7 @@ export default function OrderPage() {
     router.push("/tracking");
   };
 
-  if (!mounted) return null;
+  if (!mounted || loadingData) return <div style={{paddingTop: '100px', textAlign: 'center', color: 'white'}}>Memuat...</div>;
 
   return (
     <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
@@ -193,7 +260,7 @@ export default function OrderPage() {
             <div className="driver-selection fade-in visible">
               <h3>Driver Siap Antar</h3>
               <div className="driver-grid">
-                {MOCK_DRIVERS.map((driver) => (
+                {apiDrivers.map((driver) => (
                   <div 
                     key={driver.id} 
                     className={`driver-card ${driver.status !== 'menunggu_customer' ? 'disabled' : ''}`}
@@ -269,13 +336,13 @@ export default function OrderPage() {
                 </p>
               </div>
 
-              {["Noodle", "Dimsum", "Beverage"].map(category => (
+              {["Makanan", "Dimsum", "Minuman"].map(category => (
                 <div key={category} className="menu-category-section" style={{ marginBottom: '3rem' }}>
                   <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
                     {category}
                   </h3>
                   <div className="menu-grid">
-                    {MOCK_MENUS.filter(menu => menu.category === category).map((menu) => {
+                    {apiMenus.filter(menu => menu.category === category).map((menu) => {
                       return (
                         <div key={menu.id} className="menu-card">
                           <div className="menu-icon">{menu.image}</div>
@@ -375,7 +442,7 @@ export default function OrderPage() {
                 <>
                   <div className="order-summary">
                 <div className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
-                  {["Noodle", "Dimsum", "Beverage"].map(category => {
+                  {["Makanan", "Dimsum", "Minuman"].map(category => {
                     const itemsInCategory = cart
                       .filter(item => item.category === category)
                       .sort((a, b) => a.name.localeCompare(b.name));

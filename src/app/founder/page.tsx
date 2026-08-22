@@ -1,50 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import "../landing.css";
 
 export default function FounderDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
 
-  // Mock Data: Menus
-  const [menus, setMenus] = useState([
-    { id: "m1", category: "Makanan", name: "Mie Suit", price: 10000, isAvailable: true },
-    { id: "m2", category: "Makanan", name: "Mie Hompimpa", price: 10000, isAvailable: true },
-    { id: "m3", category: "Makanan", name: "Mie Gacoan", price: 10000, isAvailable: true },
-    { id: "m4", category: "Dimsum", name: "Udang Rambutan", price: 9000, isAvailable: true },
-    { id: "m5", category: "Dimsum", name: "Udang Keju", price: 9000, isAvailable: false },
-    { id: "m6", category: "Minuman", name: "Es Gobak Sodor", price: 9000, isAvailable: true },
-  ]);
+  // States
+  const [menus, setMenus] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
 
-  // Mock Data: Drivers
-  const [drivers, setDrivers] = useState([
-    { id: "d1", name: "Budi Santoso", phone: "08123456789", vehicle: "H 1234 AB (Vario)", status: "active", currentTask: "Mengantar ke Titik 3" },
-    { id: "d2", name: "Andi Wijaya", phone: "08198765432", vehicle: "H 9999 XX (Beat)", status: "active", currentTask: "Mengantri di Kasir" },
-    { id: "d3", name: "Siti Rahma", phone: "08556677889", vehicle: "H 5555 YY (Scoopy)", status: "pending", currentTask: "-" },
-  ]);
-
-  // Mock Data: Refunds
-  const [refunds, setRefunds] = useState([
-    { id: "REF-4821", date: "22 Ags, 14:30", customer: "Reza Rahadian", amount: 32000, reason: "Menu Habis Total", resolved: false },
-    { id: "REF-9122", date: "22 Ags, 11:15", customer: "Anya Geraldine", amount: 45000, reason: "Driver Pecah Ban", resolved: true },
-  ]);
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/menus').then(res => res.json()),
+      fetch('/api/drivers').then(res => res.json()),
+      fetch('/api/refunds').then(res => res.json())
+    ]).then(([menusData, driversData, refundsData]) => {
+      setMenus(menusData || []);
+      setDrivers(driversData || []);
+      setRefunds(refundsData || []);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Failed to load dashboard data:", err);
+      setLoading(false);
+    });
+  }, []);
 
   // Global Stats
   const platformFeePerItem = 500;
   const totalItemsSold = 420; // Dummy
   const grossRevenue = totalItemsSold * platformFeePerItem;
 
-  const toggleMenu = (id: string) => {
-    setMenus(prev => prev.map(m => m.id === id ? { ...m, isAvailable: !m.isAvailable } : m));
+  const toggleMenu = async (id: string, currentStatus: boolean) => {
+    // Optimistic UI update
+    setMenus(prev => prev.map(m => m.id === id ? { ...m, is_available: !currentStatus } : m));
+    await fetch('/api/menus', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, is_available: !currentStatus })
+    });
   };
 
-  const approveDriver = (id: string) => {
+  const approveDriver = async (id: string) => {
     setDrivers(prev => prev.map(d => d.id === id ? { ...d, status: "active" } : d));
+    await fetch('/api/drivers', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'active' })
+    });
   };
 
-  const resolveRefund = (id: string) => {
+  const resolveRefund = async (id: string) => {
     setRefunds(prev => prev.map(r => r.id === id ? { ...r, resolved: true } : r));
+    await fetch('/api/refunds', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, resolved: true })
+    });
   };
 
   const renderTabContent = () => {
@@ -102,14 +117,14 @@ export default function FounderDashboard() {
                       <td style={{ padding: '1rem', color: '#4ade80' }}>Rp {m.price.toLocaleString('id-ID')}</td>
                       <td style={{ padding: '1rem' }}>
                         <button 
-                          onClick={() => toggleMenu(m.id)}
+                          onClick={() => toggleMenu(m.id, m.is_available)}
                           style={{
-                            background: m.isAvailable ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 95, 86, 0.2)',
-                            color: m.isAvailable ? '#4ade80' : '#ff5f56',
-                            border: `1px solid ${m.isAvailable ? '#4ade80' : '#ff5f56'}`,
+                            background: m.is_available ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 95, 86, 0.2)',
+                            color: m.is_available ? '#4ade80' : '#ff5f56',
+                            border: `1px solid ${m.is_available ? '#4ade80' : '#ff5f56'}`,
                             padding: '6px 12px', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold'
                           }}>
-                          {m.isAvailable ? '🟢 Tersedia' : '🔴 Habis (Sold Out)'}
+                          {m.is_available ? '🟢 Tersedia' : '🔴 Habis (Sold Out)'}
                         </button>
                       </td>
                     </tr>
@@ -175,9 +190,11 @@ export default function FounderDashboard() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                       <span style={{ background: '#222', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{r.id}</span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{r.date}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {new Date(r.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
                     </div>
-                    <h4 style={{ margin: '0 0 4px 0', color: 'white' }}>Pelanggan: {r.customer}</h4>
+                    <h4 style={{ margin: '0 0 4px 0', color: 'white' }}>Order ID: {r.order_id}</h4>
                     <p style={{ margin: 0, color: r.resolved ? 'var(--text-secondary)' : '#ff5f56' }}>Kendala: {r.reason} (Nilai: Rp {r.amount.toLocaleString('id-ID')})</p>
                   </div>
                   
@@ -242,7 +259,13 @@ export default function FounderDashboard() {
       {/* Main Content */}
       <main style={{ flex: 1, padding: '3rem', overflowY: 'auto' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          {renderTabContent()}
+          {loading ? (
+             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'white' }}>
+                <p>Memuat Data dari Supabase...</p>
+             </div>
+          ) : (
+            renderTabContent()
+          )}
         </div>
       </main>
     </div>
