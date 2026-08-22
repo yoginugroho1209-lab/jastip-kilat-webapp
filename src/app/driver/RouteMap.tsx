@@ -1,24 +1,47 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface RouteMapProps {
   points: { id: string, sequence: number }[];
 }
 
 export default function RouteMap({ points }: RouteMapProps) {
-  const [mounted, setMounted] = useState(false);
-  
+  const mapRef = useRef<L.Map | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Map
   useEffect(() => {
-    setMounted(true);
+    if (typeof window === 'undefined') return;
+    if (!containerRef.current || mapRef.current) return;
+
+    mapRef.current = L.map(containerRef.current).setView([-7.055, 110.420], 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; CARTO'
+    }).addTo(mapRef.current);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, []);
 
-  const icons = useMemo(() => {
-    if (typeof window === 'undefined') return null;
+  // Draw Markers and Route
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
     
+    // Clear existing markers and polylines
+    map.eachLayer((layer) => {
+      if (!(layer instanceof L.TileLayer)) {
+        map.removeLayer(layer);
+      }
+    });
+
     const createIcon = (color: string, label: string) => {
       return L.divIcon({
         className: 'custom-map-icon',
@@ -28,64 +51,38 @@ export default function RouteMap({ points }: RouteMapProps) {
       });
     };
 
-    return {
-      resto: createIcon('#ff5f56', '🏪 Gacoan'),
-      point: (seq: number) => createIcon('#ffbd2e', `T${seq}`)
+    const restoCoord: [number, number] = [-7.051, 110.414];
+    L.marker(restoCoord, { icon: createIcon('#ff5f56', '🏪 Gacoan') })
+      .bindPopup('Mie Gacoan Setiabudi')
+      .addTo(map);
+
+    const pointCoords: Record<number, [number, number]> = {
+      1: [-7.053, 110.418],
+      2: [-7.058, 110.422],
+      3: [-7.063, 110.428]
     };
-  }, []);
 
-  if (!mounted || !icons) return <div style={{ height: '300px', background: '#222', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Map...</div>;
+    const activeWaypoints: [number, number][] = [restoCoord];
+    const sortedPoints = [...points].sort((a, b) => a.sequence - b.sequence);
+    
+    sortedPoints.forEach(p => {
+      if (pointCoords[p.sequence]) {
+        const coord = pointCoords[p.sequence];
+        activeWaypoints.push(coord);
+        L.marker(coord, { icon: createIcon('#ffbd2e', `T${p.sequence}`) })
+          .bindPopup(`Titik ${p.sequence}: ${p.id}`)
+          .addTo(map);
+      }
+    });
 
-  const restoCoord: [number, number] = [-7.051, 110.414];
-  
-  // Dummy coordinates around Tembalang
-  const pointCoords: Record<number, [number, number]> = {
-    1: [-7.053, 110.418],
-    2: [-7.058, 110.422],
-    3: [-7.063, 110.428]
-  };
-
-  // Only include coordinates for active points
-  const activeWaypoints: [number, number][] = [restoCoord];
-  
-  // Sort points by sequence to ensure the line is drawn correctly
-  const sortedPoints = [...points].sort((a, b) => a.sequence - b.sequence);
-  
-  sortedPoints.forEach(p => {
-    if (pointCoords[p.sequence]) {
-      activeWaypoints.push(pointCoords[p.sequence]);
+    if (activeWaypoints.length > 1) {
+      L.polyline(activeWaypoints, { color: '#4ade80', weight: 4, dashArray: '10, 10' }).addTo(map);
     }
-  });
+  }, [points]);
 
   return (
-    <div style={{ height: '300px', width: '100%', borderRadius: '16px', overflow: 'hidden', zIndex: 0, border: '1px solid var(--glass-border)' }}>
-      <MapContainer center={[-7.055, 110.420]} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-        {/* Dark Mode Map Layer */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-        />
-        
-        {/* Resto Marker */}
-        <Marker position={restoCoord} icon={icons.resto}>
-          <Popup>Mie Gacoan Setiabudi</Popup>
-        </Marker>
-        
-        {/* Customer Markers */}
-        {sortedPoints.map(p => {
-          if (!pointCoords[p.sequence]) return null;
-          return (
-            <Marker key={p.id} position={pointCoords[p.sequence]} icon={icons.point(p.sequence)}>
-              <Popup>Titik {p.sequence}: {p.id}</Popup>
-            </Marker>
-          );
-        })}
-
-        {/* Route Line */}
-        {activeWaypoints.length > 1 && (
-          <Polyline positions={activeWaypoints} color="#4ade80" weight={4} dashArray="10, 10" />
-        )}
-      </MapContainer>
+    <div style={{ height: '300px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
     </div>
   );
 }
