@@ -5,7 +5,7 @@ import Link from "next/link";
 import "../landing.css"; // Reuse the same aesthetics
 
 export default function DriverDashboard() {
-  const [isReady, setIsReady] = useState(false);
+  const [driverStatus, setDriverStatus] = useState("menunggu_customer");
   const [walletBalance, setWalletBalance] = useState(150000);
   
   // Modals
@@ -21,8 +21,8 @@ export default function DriverDashboard() {
       address: "Kos Warna Kuning Jl. Banjarsari No 10, ditaruh di atas gerbang hitam",
       mapsLink: "https://maps.app.goo.gl/example1",
       items: [
-        { name: "Mie Hompimpa", options: "Level 2", note: "Pedas sedang", qty: 2 },
-        { name: "Udang Keju", options: "", note: "", qty: 1 }
+        { id: "i1", name: "Mie Hompimpa", options: "Level 2", note: "Pedas sedang", qty: 2, checked: false },
+        { id: "i2", name: "Udang Keju", options: "", note: "", qty: 1, checked: false }
       ],
       totalMenuPrice: 32000,
       deliveryFee: 7000,
@@ -35,8 +35,8 @@ export default function DriverDashboard() {
       address: "Apartemen Mutiara Tower B, Titip Resepsionis",
       mapsLink: "https://maps.app.goo.gl/example2",
       items: [
-        { name: "Mie Suit", options: "", note: "Jangan pakai daun bawang", qty: 1 },
-        { name: "Thai Tea", options: "Dingin", note: "", qty: 1 }
+        { id: "i3", name: "Mie Suit", options: "", note: "Jangan pakai daun bawang", qty: 1, checked: false },
+        { id: "i4", name: "Thai Tea", options: "Dingin", note: "", qty: 1, checked: false }
       ],
       totalMenuPrice: 20000,
       deliveryFee: 7000,
@@ -49,8 +49,8 @@ export default function DriverDashboard() {
       address: "Jl. Ngesrep Timur V No 45, rumah pagar putih",
       mapsLink: "https://maps.app.goo.gl/example3",
       items: [
-        { name: "Mie Gacoan", options: "Level 0", note: "", qty: 3 },
-        { name: "Es Gobak Sodor", options: "", note: "", qty: 3 }
+        { id: "i5", name: "Mie Gacoan", options: "Level 0", note: "", qty: 3, checked: false },
+        { id: "i6", name: "Es Gobak Sodor", options: "", note: "", qty: 3, checked: false }
       ],
       totalMenuPrice: 63000,
       deliveryFee: 9000, // Distance > 3.5km example
@@ -59,6 +59,16 @@ export default function DriverDashboard() {
   ]);
 
   const activeOrders = orders.filter(o => o.status === "pending");
+
+  const toggleItemCheck = (orderId: string, itemId: string) => {
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+      return {
+        ...o,
+        items: o.items.map(item => item.id === itemId ? { ...item, checked: !item.checked } : item)
+      };
+    }));
+  };
 
   const markAsDelivered = (id: string) => {
     const orderToFinish = orders.find(o => o.id === id);
@@ -118,15 +128,34 @@ export default function DriverDashboard() {
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Pencairan otomatis ke Rekening setiap 23:00</p>
             </div>
             
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Status Sesi</p>
-              <button 
-                className={`btn ${isReady ? 'btn-primary' : 'btn-secondary'} pulse`}
-                onClick={() => setIsReady(!isReady)}
-                style={{ width: '100%', fontSize: '1.1rem', background: isReady ? '#ffbd2e' : 'rgba(255,255,255,0.1)', color: isReady ? '#000' : 'white' }}
+            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Update Status Anda (Dilihat Customer)</p>
+              <select 
+                value={driverStatus}
+                onChange={(e) => setDriverStatus(e.target.value)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  fontSize: '1rem',
+                  background: driverStatus === 'menunggu_customer' ? 'rgba(74, 222, 128, 0.2)' :
+                              driverStatus === 'mengantri_di_kasir' ? 'rgba(255, 189, 46, 0.2)' :
+                              driverStatus === 'menunggu_pesanan' ? 'rgba(56, 189, 248, 0.2)' :
+                              'rgba(168, 85, 247, 0.2)',
+                  color: driverStatus === 'menunggu_customer' ? '#4ade80' :
+                         driverStatus === 'mengantri_di_kasir' ? '#ffbd2e' :
+                         driverStatus === 'menunggu_pesanan' ? '#38bdf8' :
+                         '#a855f7',
+                  border: '1px solid currentColor',
+                  borderRadius: '8px', 
+                  outline: 'none',
+                  fontWeight: 'bold'
+                }}
               >
-                {isReady ? '🟢 Siap Menerima Pesanan' : '🔴 Sibuk / Istirahat'}
-              </button>
+                <option value="menunggu_customer" style={{ color: 'black' }}>🟢 Open Jastip (Menunggu Customer)</option>
+                <option value="mengantri_di_kasir" style={{ color: 'black' }}>🟡 Mengantri di Kasir</option>
+                <option value="menunggu_pesanan" style={{ color: 'black' }}>🔵 Menunggu Pesanan Siap (Bungkus)</option>
+                <option value="mengantar_pesanan" style={{ color: 'black' }}>🟣 Dalam Perjalanan Mengantar</option>
+              </select>
             </div>
           </div>
 
@@ -151,14 +180,17 @@ export default function DriverDashboard() {
                   <div key={order.id} style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                     
                     {/* Order Header */}
-                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <span style={{ background: '#ffbd2e', color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', marginRight: '8px' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ background: '#ffbd2e', color: '#000', padding: '4px 12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold' }}>
                           Titik {idx + 1}
                         </span>
-                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{order.id}</span>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Kode Plastik/Pesanan</p>
+                          <span style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '1px' }}>{order.id}</span>
+                        </div>
                       </div>
-                      <span style={{ color: '#4ade80', fontWeight: 'bold' }}>+ Rp {order.deliveryFee.toLocaleString('id-ID')}</span>
+                      <span style={{ color: '#4ade80', fontWeight: 'bold', fontSize: '1.1rem' }}>+ Rp {order.deliveryFee.toLocaleString('id-ID')}</span>
                     </div>
 
                     {/* Customer Info & Address */}
@@ -183,15 +215,28 @@ export default function DriverDashboard() {
 
                     {/* Items List */}
                     <div style={{ padding: '0 1rem 1rem 1rem' }}>
-                      <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Daftar Belanjaan</p>
+                      <p style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>Daftar Belanjaan (Ceklis saat dipesan/dibungkus)</p>
                       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                        {order.items.map((item, i) => (
-                          <li key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '8px' }}>
-                            <div>
-                              <strong style={{ color: 'white' }}>{item.qty}x {item.name}</strong>
-                              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                {item.options && <span style={{ marginRight: '8px', background: 'rgba(255,255,255,0.1)', padding: '2px 4px', borderRadius: '4px' }}>{item.options}</span>}
-                                {item.note && <i>"{item.note}"</i>}
+                        {order.items.map((item) => (
+                          <li key={item.id} 
+                              onClick={() => toggleItemCheck(order.id, item.id)}
+                              style={{ 
+                                display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '8px', 
+                                borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '12px', cursor: 'pointer',
+                                opacity: item.checked ? 0.4 : 1
+                              }}>
+                            <div style={{ 
+                              width: '24px', height: '24px', borderRadius: '4px', border: '2px solid var(--accent-primary)', 
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '2px',
+                              background: item.checked ? 'var(--accent-primary)' : 'transparent'
+                            }}>
+                              {item.checked && <span style={{ color: 'black', fontWeight: 'bold' }}>✓</span>}
+                            </div>
+                            <div style={{ textDecoration: item.checked ? 'line-through' : 'none' }}>
+                              <strong style={{ color: 'white', fontSize: '1.1rem' }}>{item.qty}x {item.name}</strong>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                {item.options && <span style={{ marginRight: '8px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{item.options}</span>}
+                                {item.note && <i style={{ color: '#ffbd2e' }}>"{item.note}"</i>}
                               </div>
                             </div>
                           </li>
