@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MOCK_DRIVERS, MOCK_MENUS, Driver, Menu } from "../data/mock";
 import "../landing.css"; // Reuse the same styles
 
@@ -13,11 +14,13 @@ interface CartItem extends Menu {
 }
 
 export default function OrderPage() {
+  const router = useRouter();
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<"cart" | "qris">("cart");
   
   // Customize Modal States
   const [activeCustomizeMenu, setActiveCustomizeMenu] = useState<Menu | null>(null);
@@ -43,6 +46,11 @@ export default function OrderPage() {
 
   const closeCustomizeModal = () => {
     setActiveCustomizeMenu(null);
+  };
+
+  const closeCheckoutModal = () => {
+    setIsCheckoutOpen(false);
+    setPaymentStep("cart"); // Reset payment step when closed
   };
 
   const confirmAddToCart = () => {
@@ -98,10 +106,15 @@ export default function OrderPage() {
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Pesanan Berhasil Dibuat!\nNama: ${customerName}\nMaps: ${customerMapsLink || 'Tidak dicantumkan'}\nTotal: Rp ${totalPrice.toLocaleString('id-ID')}`);
+    setPaymentStep("qris");
+  };
+
+  const simulatePaymentSuccess = () => {
     setCart([]);
     setIsCheckoutOpen(false);
     setSelectedDriver(null);
+    setPaymentStep("cart");
+    router.push("/tracking");
   };
 
   return (
@@ -281,12 +294,14 @@ export default function OrderPage() {
         <div className="modal-overlay" style={{ zIndex: 200 }}>
           <div className="modal-content glass-card fade-in visible">
             <div className="modal-header">
-              <h3>Keranjang & Checkout</h3>
-              <button className="btn-close" onClick={() => setIsCheckoutOpen(false)}>×</button>
+              <h3>{paymentStep === "cart" ? "Keranjang & Checkout" : "Pembayaran QRIS"}</h3>
+              <button className="btn-close" onClick={closeCheckoutModal}>×</button>
             </div>
             
             <div className="modal-body">
-              <div className="order-summary">
+              {paymentStep === "cart" ? (
+                <>
+                  <div className="order-summary">
                 <div className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
                   {["Noodle", "Dimsum", "Beverage"].map(category => {
                     const itemsInCategory = cart
@@ -374,6 +389,25 @@ export default function OrderPage() {
                 
                 <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
               </form>
+              </>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                  <div style={{ background: 'white', padding: '1rem', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem' }}>
+                    {/* Dummy QR Code using CSS squares */}
+                    <div style={{ width: '200px', height: '200px', background: 'repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50% / 20px 20px', border: '10px solid white' }}></div>
+                  </div>
+                  <h4 style={{ color: 'white', marginBottom: '0.5rem' }}>Scan untuk Membayar</h4>
+                  <p style={{ color: 'var(--accent-primary)', fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>
+                    Rp {totalPrice.toLocaleString('id-ID')}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                    Otomatis verifikasi setelah pembayaran berhasil.
+                  </p>
+                  <button className="btn btn-primary btn-block pulse" onClick={simulatePaymentSuccess}>
+                    [Simulasi] Anggap Pembayaran Berhasil
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
