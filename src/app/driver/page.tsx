@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import "../landing.css"; // Reuse aesthetics
+
+const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
 
 export default function DriverDashboard() {
   const [driverStatus, setDriverStatus] = useState("menunggu_customer");
@@ -274,25 +277,9 @@ export default function DriverDashboard() {
           {activeOrders.length > 0 && (
             <>
               {/* Route Map Preview */}
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                <h4 style={{ color: 'white', marginBottom: '1rem' }}>Peta Rute Pengantaran (Preview)</h4>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', padding: '1rem 0' }}>
-                  <div style={{ position: 'absolute', height: '4px', background: 'var(--glass-border)', left: '20px', right: '20px', top: '50%', transform: 'translateY(-50%)', zIndex: 0 }}></div>
-                  
-                  <div style={{ zIndex: 1, textAlign: 'center', background: '#222', padding: '8px', borderRadius: '50%', border: '2px solid #ff5f56' }}>
-                    🏪
-                  </div>
-                  
-                  {activeOrders.map((order) => (
-                    <div key={order.id} style={{ zIndex: 1, textAlign: 'center', background: '#222', padding: '8px 12px', borderRadius: '50px', border: '2px solid #ffbd2e' }}>
-                      <strong style={{ color: 'white', fontSize: '0.9rem' }}>T{order.sequence}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                  <span>Resto (Mie Gacoan)</span>
-                  <span>Titik Terakhir</span>
-                </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <h4 style={{ color: 'white', marginBottom: '1rem' }}>Peta Rute Pengantaran (Tembalang)</h4>
+                <RouteMap points={activeOrders.map(o => ({ id: o.id, sequence: o.sequence }))} />
               </div>
 
               {/* Global Menu Summary */}
