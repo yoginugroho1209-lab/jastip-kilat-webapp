@@ -288,7 +288,10 @@ export default function OrderPage() {
               <div className="order-summary">
                 <div className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
                   {["Noodle", "Dimsum", "Beverage"].map(category => {
-                    const itemsInCategory = cart.filter(item => item.category === category);
+                    const itemsInCategory = cart
+                      .filter(item => item.category === category)
+                      .sort((a, b) => a.name.localeCompare(b.name));
+                    
                     if (itemsInCategory.length === 0) return null;
                     
                     return (
