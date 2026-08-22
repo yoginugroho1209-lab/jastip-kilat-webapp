@@ -342,6 +342,13 @@ export default function OrderPage() {
 
               <form className="checkout-form" onSubmit={handleCheckout} style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
                 <h4 style={{ marginBottom: '1rem', color: 'white' }}>Data Pengiriman (Tanpa Registrasi)</h4>
+                
+                <div className="menu-note glass-card" style={{ marginBottom: '1.5rem', padding: '1rem', borderLeft: '4px solid #ff5f56', background: 'rgba(255, 95, 86, 0.05)' }}>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    ⚠️ <strong>Kebijakan Pengantaran Cepat:</strong> Driver <strong>tidak akan menunggu</strong> Anda keluar. Pesanan akan langsung ditaruh sesuai instruksi alamat Anda. Tuliskan detail alamat dan titik taruh selengkap mungkin. Risiko karena detail alamat yang tidak jelas di luar tanggung jawab driver.
+                  </p>
+                </div>
+
                 <div className="form-group">
                   <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nama Lengkap (Misal: Budi Kos)" />
                 </div>
@@ -349,7 +356,7 @@ export default function OrderPage() {
                   <input type="tel" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="No. WhatsApp (081234...)" />
                 </div>
                 <div className="form-group">
-                  <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Lengkap (Misal: Kos Warna Kuning, Jl. Banjarsari No 10...)" rows={2}></textarea>
+                  <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Terlengkap & Titik Taruh (Misal: Kos Kuning Jl. Banjarsari No 10, tolong ditaruh di gerbang hitam / titip satpam)" rows={3}></textarea>
                 </div>
                 
                 <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
