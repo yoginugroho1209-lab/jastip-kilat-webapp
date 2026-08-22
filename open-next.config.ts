@@ -3,9 +3,6 @@ export default {
     override: {
       wrapper: "cloudflare-node",
       converter: "edge",
-      incrementalCache: async () => (await import("@opennextjs/cloudflare/kvCache")).default,
-      tagCache: "dummy",
-      queue: "dummy",
     },
   },
   middleware: {
