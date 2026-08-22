@@ -212,12 +212,14 @@ export default function OrderPage() {
         </div>
       </section>
 
-      {/* Floating Cart (Only shows summary and checkout button now, detailed controls are inside modal) */}
+      {/* Floating Cart */}
       {cart.length > 0 && !isCheckoutOpen && !activeCustomizeMenu && (
         <div className="floating-cart bounce-in" onClick={() => setIsCheckoutOpen(true)} style={{ zIndex: 90 }}>
-          <div className="cart-info">
-            <span className="cart-count">{totalItems} Item</span>
-            <span className="cart-total">Rp {totalPrice.toLocaleString('id-ID')}</span>
+          <div className="cart-info" style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              {totalItems} Item <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', marginLeft: '6px' }}>• Lihat Detail Pesanan</span>
+            </span>
+            <span className="cart-total" style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Rp {totalPrice.toLocaleString('id-ID')}</span>
           </div>
           <button className="btn btn-primary">Checkout ➔</button>
         </div>
