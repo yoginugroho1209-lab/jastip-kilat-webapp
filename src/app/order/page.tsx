@@ -28,6 +28,7 @@ export default function OrderPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [customerMapsLink, setCustomerMapsLink] = useState("");
 
   const openCustomizeModal = (menu: Menu) => {
     setActiveCustomizeMenu(menu);
@@ -97,7 +98,7 @@ export default function OrderPage() {
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Pesanan Berhasil Dibuat!\nNama: ${customerName}\nTotal: Rp ${totalPrice.toLocaleString('id-ID')}`);
+    alert(`Pesanan Berhasil Dibuat!\nNama: ${customerName}\nMaps: ${customerMapsLink || 'Tidak dicantumkan'}\nTotal: Rp ${totalPrice.toLocaleString('id-ID')}`);
     setCart([]);
     setIsCheckoutOpen(false);
     setSelectedDriver(null);
@@ -354,6 +355,9 @@ export default function OrderPage() {
                 </div>
                 <div className="form-group">
                   <input type="tel" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="No. WhatsApp (081234...)" />
+                </div>
+                <div className="form-group">
+                  <input type="url" value={customerMapsLink} onChange={e => setCustomerMapsLink(e.target.value)} placeholder="Link Google Maps (Opsional tapi sangat disarankan)" />
                 </div>
                 <div className="form-group">
                   <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Terlengkap & Titik Taruh (Misal: Kos Kuning Jl. Banjarsari No 10, tolong ditaruh di gerbang hitam / titip satpam)" rows={3}></textarea>
