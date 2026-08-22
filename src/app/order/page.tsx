@@ -132,34 +132,47 @@ export default function OrderPage() {
                 </div>
               </div>
               
-              <div className="menu-grid">
-                {MOCK_MENUS.map((menu) => {
-                  const cartItem = cart.find(item => item.id === menu.id);
-                  const qty = cartItem ? cartItem.quantity : 0;
-                  
-                  return (
-                    <div key={menu.id} className="menu-card">
-                      <div className="menu-icon">{menu.image}</div>
-                      <div className="menu-details">
-                        <h4>{menu.name}</h4>
-                        <p>{menu.description}</p>
-                        <strong className="price">Rp {menu.price.toLocaleString('id-ID')}</strong>
-                      </div>
-                      <div className="menu-actions">
-                        {qty === 0 ? (
-                          <button className="btn btn-add" onClick={() => addToCart(menu)}>+ Tambah</button>
-                        ) : (
-                          <div className="qty-controls">
-                            <button className="btn-qty" onClick={() => removeFromCart(menu.id)}>-</button>
-                            <span>{qty}</span>
-                            <button className="btn-qty" onClick={() => addToCart(menu)}>+</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="menu-note glass-card" style={{ marginBottom: '2rem', padding: '1rem', borderLeft: '4px solid var(--accent-primary)' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                  💡 <strong>Catatan:</strong> Harga menu sudah termasuk pajak restoran (PB1) dan pembulatan kasir. Tidak ada markup harga (100% harga asli).
+                </p>
               </div>
+
+              {["Noodle", "Dimsum", "Beverage"].map(category => (
+                <div key={category} className="menu-category-section" style={{ marginBottom: '3rem' }}>
+                  <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
+                    {category}
+                  </h3>
+                  <div className="menu-grid">
+                    {MOCK_MENUS.filter(menu => menu.category === category).map((menu) => {
+                      const cartItem = cart.find(item => item.id === menu.id);
+                      const qty = cartItem ? cartItem.quantity : 0;
+                      
+                      return (
+                        <div key={menu.id} className="menu-card">
+                          <div className="menu-icon">{menu.image}</div>
+                          <div className="menu-details">
+                            <h4>{menu.name}</h4>
+                            <p>{menu.description}</p>
+                            <strong className="price">Rp {menu.price.toLocaleString('id-ID')}</strong>
+                          </div>
+                          <div className="menu-actions">
+                            {qty === 0 ? (
+                              <button className="btn btn-add" onClick={() => addToCart(menu)}>+ Tambah</button>
+                            ) : (
+                              <div className="qty-controls">
+                                <button className="btn-qty" onClick={() => removeFromCart(menu.id)}>-</button>
+                                <span>{qty}</span>
+                                <button className="btn-qty" onClick={() => addToCart(menu)}>+</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
