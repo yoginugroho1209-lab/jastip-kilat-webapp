@@ -105,7 +105,9 @@ export default function OrderPage() {
                     </div>
                     <div className="driver-details">
                       <p>📍 {driver.restoName}</p>
-                      <p>⏱️ Akan mengantri di kasir dalam : {driver.eta}</p>
+                      {driver.status === 'menunggu_customer' && (
+                        <p>⏱️ Akan mengantri di kasir dalam : {driver.eta}</p>
+                      )}
                       <div className="slot-bar">
                         <div className="slot-progress" style={{ width: `${(driver.slotsFilled / driver.maxSlots) * 100}%` }}></div>
                       </div>
