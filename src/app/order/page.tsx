@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MOCK_DRIVERS, MOCK_MENUS, Driver, Menu } from "../data/mock";
@@ -15,6 +15,27 @@ interface CartItem extends Menu {
 
 export default function OrderPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [hasActiveOrder, setHasActiveOrder] = useState(false);
+  const [orderHistory, setOrderHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+    setHasActiveOrder(localStorage.getItem("jastip_active_order") === "true");
+    const history = JSON.parse(localStorage.getItem("jastip_history") || "[]");
+    
+    // Default dummy history if empty
+    if (history.length === 0) {
+      const dummy = [
+        { id: "JK-98213", date: "21 Agu 2026, 12:30", driver: "Andi Wijaya", status: "Selesai", rating: 5, total: 45000 }
+      ];
+      localStorage.setItem("jastip_history", JSON.stringify(dummy));
+      setOrderHistory(dummy);
+    } else {
+      setOrderHistory(history);
+    }
+  }, []);
+
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   
   // Cart States
@@ -56,8 +77,6 @@ export default function OrderPage() {
   const confirmAddToCart = () => {
     if (!activeCustomizeMenu) return;
 
-    // Create a unique ID based on menu ID + selected options + note
-    // This ensures items with different levels/notes don't stack
     const optionsString = JSON.stringify(customizeOptions);
     const cartItemId = `${activeCustomizeMenu.id}_${optionsString}_${customizeNote}`;
 
@@ -110,12 +129,16 @@ export default function OrderPage() {
   };
 
   const simulatePaymentSuccess = () => {
+    localStorage.setItem("jastip_active_order", "true");
+    localStorage.setItem("jastip_last_total", totalPrice.toString());
     setCart([]);
     setIsCheckoutOpen(false);
     setSelectedDriver(null);
     setPaymentStep("cart");
     router.push("/tracking");
   };
+
+  if (!mounted) return null;
 
   return (
     <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
@@ -139,20 +162,30 @@ export default function OrderPage() {
           <p>Pilih driver yang sedang siap antre, dan pesan menu favoritmu sekarang.</p>
         </div>
 
-        {/* ACTIVE ORDER BANNER (SIMULATION) */}
-        <div style={{ maxWidth: '1000px', margin: '0 auto 2rem auto' }}>
-          <div className="glass-card bounce-in" style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <div style={{ fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🛵</div>
+        {/* ACTIVE ORDER BANNER */}
+        <div style={{ maxWidth: '1000px', margin: '0 auto 1.5rem auto' }}>
+          {hasActiveOrder ? (
+            <div className="glass-card bounce-in" style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🛵</div>
+                <div>
+                  <h4 style={{ color: '#ffbd2e', margin: '0 0 4px 0' }}>Pesanan Sedang Diproses</h4>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Driver: Budi Santoso</p>
+                </div>
+              </div>
+              <Link href="/tracking" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#ffbd2e', color: '#000' }}>
+                Lacak Pesanan ➔
+              </Link>
+            </div>
+          ) : (
+            <div className="glass-card" style={{ padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '15px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--glass-border)' }}>
+              <div style={{ fontSize: '1.5rem', opacity: 0.5 }}>💤</div>
               <div>
-                <h4 style={{ color: '#ffbd2e', margin: '0 0 4px 0' }}>Pesanan Sedang Diproses</h4>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Mie Gacoan (Driver: Budi Santoso)</p>
+                <h4 style={{ color: 'var(--text-secondary)', margin: '0 0 2px 0' }}>Belum ada pesanan aktif</h4>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>Pesanan yang sedang dikerjakan driver akan muncul di sini.</p>
               </div>
             </div>
-            <Link href="/tracking" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#ffbd2e', color: '#000' }}>
-              Lacak Pesanan ➔
-            </Link>
-          </div>
+          )}
         </div>
 
         <div className="order-container glass-card" style={{ maxWidth: '1000px', margin: '0 auto' }}>
@@ -193,6 +226,29 @@ export default function OrderPage() {
                     )}
                   </div>
                 ))}
+              </div>
+              
+              {/* ORDER HISTORY */}
+              <div style={{ marginTop: '3rem' }}>
+                <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Riwayat Pesanan</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {orderHistory.map((hist, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                      <div>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{hist.id}</span>
+                        <h4 style={{ margin: '4px 0' }}>Driver: {hist.driver}</h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{hist.date}</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', marginBottom: '4px' }}>{hist.status}</span>
+                        <div style={{ color: '#ffbd2e', fontSize: '0.9rem' }}>
+                          {"★".repeat(hist.rating)}{"☆".repeat(5 - hist.rating)}
+                        </div>
+                        <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Rp {hist.total?.toLocaleString('id-ID') || '0'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -358,7 +414,7 @@ export default function OrderPage() {
                 </div>
                 <div className="summary-fees" style={{ marginTop: '1rem' }}>
                   <div className="fee-row">
-                    <span>Ongkos Kirim (Flat)</span>
+                     <span>Ongkos Kirim (Flat)</span>
                     <span>Rp {deliveryFee.toLocaleString('id-ID')}</span>
                   </div>
                   <div className="fee-row">

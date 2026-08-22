@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import "../landing.css";
 
 export default function TrackingPage() {
+  const router = useRouter();
   const [currentNode, setCurrentNode] = useState(0);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -28,6 +30,33 @@ export default function TrackingPage() {
     { icon: "🛵", title: "Dalam Perjalanan", desc: "Driver sedang menuju titik antar" },
     { icon: "📍", title: "Pesanan Tiba", desc: "Silakan ambil pesanan Anda" },
   ];
+
+  const handleFinishOrder = () => {
+    setRatingSubmitted(true);
+
+    const finalRating = rating > 0 ? rating : 5; // Default 5 stars if empty
+    
+    // Save to history simulation
+    const history = JSON.parse(localStorage.getItem("jastip_history") || "[]");
+    const lastTotal = localStorage.getItem("jastip_last_total") || "0";
+    
+    const newOrder = {
+      id: "JK-" + Math.floor(Math.random() * 90000 + 10000),
+      date: new Date().toLocaleString("id-ID", { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      driver: "Budi Santoso",
+      status: "Selesai",
+      rating: finalRating,
+      total: parseInt(lastTotal)
+    };
+    
+    localStorage.setItem("jastip_history", JSON.stringify([newOrder, ...history]));
+    localStorage.setItem("jastip_active_order", "false");
+
+    // Give user 2 seconds to see the success message then redirect
+    setTimeout(() => {
+      router.push("/order");
+    }, 2000);
+  };
 
   return (
     <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
@@ -138,18 +167,20 @@ export default function TrackingPage() {
                     <textarea placeholder="Ceritakan alasan penilaian Anda (Opsional)..." rows={3} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }}></textarea>
                   </div>
                   <button 
-                    className={`btn btn-primary w-full ${rating === 0 ? 'disabled' : ''}`} 
-                    disabled={rating === 0}
-                    onClick={() => setRatingSubmitted(true)}
+                    className={`btn btn-primary w-full`} 
+                    onClick={handleFinishOrder}
                   >
-                    Kirim Penilaian
+                    Kirim Penilaian & Selesai
                   </button>
+                  <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Jika dikosongkan, driver otomatis mendapat bintang 5.
+                  </p>
                 </div>
               ) : (
                 <div className="rating-success fade-in visible" style={{ padding: '2rem 0' }}>
                   <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
                   <h4 style={{ color: 'white' }}>Terima kasih atas penilaian Anda!</h4>
-                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Ulasan Anda sangat membantu Jastip Kilat menjadi lebih baik.</p>
+                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Anda akan dialihkan kembali...</p>
                 </div>
               )}
             </div>
