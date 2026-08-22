@@ -117,6 +117,19 @@ export default function DriverDashboard() {
       menunggu_pesanan: "Menunggu Pesanan Dibungkus",
       mengantar_pesanan: "Dalam Perjalanan Mengantar"
     };
+
+    const statusOrder = ["menunggu_customer", "mengantri_di_kasir", "menunggu_pesanan", "mengantar_pesanan"];
+    const currentIndex = statusOrder.indexOf(driverStatus);
+    const newIndex = statusOrder.indexOf(newStatus);
+
+    if (newIndex < currentIndex) {
+      alert("⚠️ Gagal! Anda tidak bisa kembali ke tahap sebelumnya.");
+      return;
+    }
+    if (newIndex > currentIndex + 1) {
+      alert("⚠️ Gagal! Harap selesaikan tahap secara berurutan, tidak bisa diloncati.");
+      return;
+    }
     
     if (window.confirm(`Anda yakin ingin pindah ke tahap:\n"${statusLabels[newStatus]}"?\n\nPastikan tugas sebelumnya sudah beres!`)) {
       setDriverStatus(newStatus);
@@ -247,9 +260,9 @@ export default function DriverDashboard() {
                   border: '1px solid currentColor', borderRadius: '8px', outline: 'none', fontWeight: 'bold'
                 }}
               >
-                <option value="menunggu_customer" style={{ color: 'black' }}>🟢 Open Jastip (Menunggu)</option>
-                <option value="mengantri_di_kasir" style={{ color: 'black' }}>🟡 Mengantri di Kasir</option>
-                <option value="menunggu_pesanan" style={{ color: 'black' }}>🔵 Menunggu Pesanan Dibungkus</option>
+                <option value="menunggu_customer" style={{ color: 'black' }} disabled={["mengantri_di_kasir", "menunggu_pesanan", "mengantar_pesanan"].includes(driverStatus)}>🟢 Open Jastip (Menunggu)</option>
+                <option value="mengantri_di_kasir" style={{ color: 'black' }} disabled={["menunggu_pesanan", "mengantar_pesanan"].includes(driverStatus)}>🟡 Mengantri di Kasir</option>
+                <option value="menunggu_pesanan" style={{ color: 'black' }} disabled={["mengantar_pesanan"].includes(driverStatus)}>🔵 Menunggu Pesanan Dibungkus</option>
                 <option value="mengantar_pesanan" style={{ color: 'black' }}>🟣 Dalam Perjalanan Mengantar</option>
               </select>
             </div>
