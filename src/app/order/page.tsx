@@ -139,6 +139,22 @@ export default function OrderPage() {
           <p>Pilih driver yang sedang siap antre, dan pesan menu favoritmu sekarang.</p>
         </div>
 
+        {/* ACTIVE ORDER BANNER (SIMULATION) */}
+        <div style={{ maxWidth: '1000px', margin: '0 auto 2rem auto' }}>
+          <div className="glass-card bounce-in" style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🛵</div>
+              <div>
+                <h4 style={{ color: '#ffbd2e', margin: '0 0 4px 0' }}>Pesanan Sedang Diproses</h4>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Mie Gacoan (Driver: Budi Santoso)</p>
+              </div>
+            </div>
+            <Link href="/tracking" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#ffbd2e', color: '#000' }}>
+              Lacak Pesanan ➔
+            </Link>
+          </div>
+        </div>
+
         <div className="order-container glass-card" style={{ maxWidth: '1000px', margin: '0 auto' }}>
           {!selectedDriver ? (
             <div className="driver-selection fade-in visible">
