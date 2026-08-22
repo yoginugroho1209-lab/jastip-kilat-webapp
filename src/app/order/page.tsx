@@ -354,7 +354,16 @@ export default function OrderPage() {
                   <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nama Lengkap (Misal: Budi Kos)" />
                 </div>
                 <div className="form-group">
-                  <input type="tel" required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="No. WhatsApp (081234...)" />
+                  <input 
+                    type="tel" 
+                    required 
+                    value={customerPhone} 
+                    onChange={e => {
+                      const onlyNums = e.target.value.replace(/[^0-9]/g, '');
+                      setCustomerPhone(onlyNums);
+                    }} 
+                    placeholder="No. WhatsApp (081234...)" 
+                  />
                 </div>
                 <div className="form-group">
                   <input type="url" required value={customerMapsLink} onChange={e => setCustomerMapsLink(e.target.value)} placeholder="Link Google Maps" />
