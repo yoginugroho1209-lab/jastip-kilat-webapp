@@ -88,27 +88,30 @@ export default function OrderPage() {
                 {MOCK_DRIVERS.map((driver) => (
                   <div 
                     key={driver.id} 
-                    className={`driver-card ${driver.status === 'busy' ? 'disabled' : ''}`}
-                    onClick={() => driver.status === 'ready' && setSelectedDriver(driver)}
+                    className={`driver-card ${driver.status !== 'menunggu_customer' ? 'disabled' : ''}`}
+                    onClick={() => driver.status === 'menunggu_customer' && setSelectedDriver(driver)}
                   >
                     <div className="driver-header">
                       <div className="driver-info">
                         <h4>{driver.name}</h4>
                         <span className="rating">⭐ {driver.rating}</span>
                       </div>
-                      <span className={`status-badge ${driver.status}`}>
-                        {driver.status === 'ready' ? 'Siap Antar' : 'Sesi Penuh'}
+                      <span className={`status-badge ${driver.status === 'menunggu_customer' ? 'ready' : 'busy'}`}>
+                        {driver.status === 'menunggu_customer' ? 'Menunggu Customer' : 
+                         driver.status === 'mengantar_pesanan' ? 'Mengantar Pesanan' : 
+                         driver.status === 'mengantri_di_kasir' ? 'Mengantri di Kasir' : 
+                         'Menunggu Pesanan'}
                       </span>
                     </div>
                     <div className="driver-details">
                       <p>📍 {driver.restoName}</p>
-                      <p>⏱️ Estimasi: {driver.eta}</p>
+                      <p>⏱️ Akan mengantri di kasir dalam : {driver.eta}</p>
                       <div className="slot-bar">
                         <div className="slot-progress" style={{ width: `${(driver.slotsFilled / driver.maxSlots) * 100}%` }}></div>
                       </div>
                       <p className="slot-text">Slot Terisi: {driver.slotsFilled}/{driver.maxSlots}</p>
                     </div>
-                    {driver.status === 'ready' && (
+                    {driver.status === 'menunggu_customer' && (
                       <button className="btn btn-primary w-full mt-4">Pilih Driver Ini</button>
                     )}
                   </div>

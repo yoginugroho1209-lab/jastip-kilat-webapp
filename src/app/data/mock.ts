@@ -7,11 +7,13 @@ export interface Menu {
   isAvailable: boolean;
 }
 
+export type DriverStatus = "menunggu_customer" | "mengantar_pesanan" | "mengantri_di_kasir" | "menunggu_pesanan";
+
 export interface Driver {
   id: string;
   name: string;
   restoName: string;
-  status: "ready" | "busy";
+  status: DriverStatus;
   rating: number;
   slotsFilled: number;
   maxSlots: number;
@@ -58,7 +60,7 @@ export const MOCK_DRIVERS: Driver[] = [
     id: "d1",
     name: "Budi Santoso",
     restoName: "Mie Gacoan Setiabudi",
-    status: "ready",
+    status: "menunggu_customer",
     rating: 4.8,
     slotsFilled: 2,
     maxSlots: 5,
@@ -68,7 +70,7 @@ export const MOCK_DRIVERS: Driver[] = [
     id: "d2",
     name: "Andi Wijaya",
     restoName: "Mie Gacoan Setiabudi",
-    status: "ready",
+    status: "menunggu_customer",
     rating: 4.9,
     slotsFilled: 4,
     maxSlots: 5,
@@ -78,10 +80,30 @@ export const MOCK_DRIVERS: Driver[] = [
     id: "d3",
     name: "Siti Rahma",
     restoName: "Mie Gacoan Setiabudi",
-    status: "busy",
+    status: "mengantar_pesanan",
     rating: 5.0,
     slotsFilled: 5,
     maxSlots: 5,
-    eta: "Sedang Mengantar",
+    eta: "0 Menit",
+  },
+  {
+    id: "d4",
+    name: "Joko Anwar",
+    restoName: "Mie Gacoan Setiabudi",
+    status: "mengantri_di_kasir",
+    rating: 4.7,
+    slotsFilled: 5,
+    maxSlots: 5,
+    eta: "0 Menit",
+  },
+  {
+    id: "d5",
+    name: "Ayu Lestari",
+    restoName: "Mie Gacoan Setiabudi",
+    status: "menunggu_pesanan",
+    rating: 4.9,
+    slotsFilled: 5,
+    maxSlots: 5,
+    eta: "0 Menit",
   },
 ];
