@@ -286,29 +286,41 @@ export default function OrderPage() {
             
             <div className="modal-body">
               <div className="order-summary">
-                <ul className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
-                  {cart.map(item => (
-                    <li key={item.cartItemId} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ flex: 1 }}>
-                          <span style={{ color: 'white', fontWeight: 'bold' }}>{item.name}</span>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                            {Object.entries(item.selectedOptions).map(([k, v]) => <span key={k} style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', marginRight: '4px' }}>{v}</span>)}
-                            {item.note && <span style={{ display: 'block', marginTop: '4px', fontStyle: 'italic' }}>"{item.note}"</span>}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', display: 'block' }}>Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
-                          <div className="qty-controls" style={{ marginTop: '8px', padding: '2px 6px' }}>
-                            <button className="btn-qty" onClick={() => removeCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>-</button>
-                            <span style={{ fontSize: '0.9rem' }}>{item.quantity}</span>
-                            <button className="btn-qty" onClick={() => addExistingCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>+</button>
-                          </div>
-                        </div>
+                <div className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
+                  {["Noodle", "Dimsum", "Beverage"].map(category => {
+                    const itemsInCategory = cart.filter(item => item.category === category);
+                    if (itemsInCategory.length === 0) return null;
+                    
+                    return (
+                      <div key={category} style={{ marginBottom: '1rem' }}>
+                        <h5 style={{ color: 'var(--accent-secondary)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px', marginBottom: '8px', fontSize: '1rem' }}>{category}</h5>
+                        <ul style={{ listStyle: 'none' }}>
+                          {itemsInCategory.map(item => (
+                            <li key={item.cartItemId} style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px dashed rgba(255,255,255,0.05)', padding: '10px 0' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ color: 'white', fontWeight: 'bold' }}>{item.name}</span>
+                                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                    {Object.entries(item.selectedOptions).map(([k, v]) => <span key={k} style={{ display: 'inline-block', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', marginRight: '4px' }}>{v}</span>)}
+                                    {item.note && <span style={{ display: 'block', marginTop: '4px', fontStyle: 'italic' }}>"{item.note}"</span>}
+                                  </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                  <span style={{ color: 'var(--accent-primary)', fontWeight: 'bold', display: 'block' }}>Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                                  <div className="qty-controls" style={{ marginTop: '8px', padding: '2px 6px' }}>
+                                    <button className="btn-qty" onClick={() => removeCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>-</button>
+                                    <span style={{ fontSize: '0.9rem' }}>{item.quantity}</span>
+                                    <button className="btn-qty" onClick={() => addExistingCartItem(item.cartItemId)} style={{ width: '20px', height: '20px', fontSize: '1rem' }}>+</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </li>
-                  ))}
-                </ul>
+                    );
+                  })}
+                </div>
                 <div className="summary-fees" style={{ marginTop: '1rem' }}>
                   <div className="fee-row">
                     <span>Ongkos Kirim (Flat)</span>
