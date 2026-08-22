@@ -6,6 +6,9 @@ import "../landing.css";
 
 export default function TrackingPage() {
   const [currentNode, setCurrentNode] = useState(0);
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   useEffect(() => {
     // Simulate progression of order
@@ -97,10 +100,60 @@ export default function TrackingPage() {
               <h4 style={{ fontSize: '1.2rem', margin: '4px 0' }}>Budi Santoso</h4>
               <p style={{ fontSize: '0.9rem', color: '#ffbd2e' }}>⭐ 4.8</p>
             </div>
-            <button className="btn btn-primary" onClick={() => alert("Simulasi membuka WhatsApp Driver...")}>
-              💬 Chat Driver
+            <button className="btn btn-secondary" style={{ opacity: 0.5, cursor: 'not-allowed' }} disabled>
+              💬 Chat (Coming Soon)
             </button>
           </div>
+
+          {/* Post-Delivery Rating Section */}
+          {currentNode === 3 && (
+            <div className="post-delivery fade-in visible" style={{ background: 'rgba(255,255,255,0.02)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--accent-primary)', textAlign: 'center' }}>
+              <h3 style={{ color: 'var(--accent-primary)', marginBottom: '1rem' }}>Pesanan Telah Tiba!</h3>
+              
+              <div style={{ marginBottom: '2rem' }}>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Bukti Pengantaran:</p>
+                <div style={{ width: '100%', maxWidth: '300px', height: '200px', background: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.02) 10px, rgba(255,255,255,0.02) 20px)', margin: '0 auto', borderRadius: '8px', border: '1px dashed var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '3rem' }}>📷</span>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>[Mockup Foto Makanan di Gerbang]</span>
+                </div>
+              </div>
+
+              {!ratingSubmitted ? (
+                <div className="rating-form">
+                  <h4 style={{ marginBottom: '1rem', color: 'white' }}>Beri Penilaian untuk Budi Santoso</h4>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', fontSize: '2rem', cursor: 'pointer', marginBottom: '1rem' }}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span 
+                        key={star}
+                        onClick={() => setRating(star)}
+                        onMouseEnter={() => setHoveredRating(star)}
+                        onMouseLeave={() => setHoveredRating(0)}
+                        style={{ color: (hoveredRating || rating) >= star ? '#ffbd2e' : 'rgba(255,255,255,0.2)', transition: 'color 0.2s' }}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <div className="form-group" style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+                    <textarea placeholder="Ceritakan alasan penilaian Anda (Opsional)..." rows={3} style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px' }}></textarea>
+                  </div>
+                  <button 
+                    className={`btn btn-primary w-full ${rating === 0 ? 'disabled' : ''}`} 
+                    disabled={rating === 0}
+                    onClick={() => setRatingSubmitted(true)}
+                  >
+                    Kirim Penilaian
+                  </button>
+                </div>
+              ) : (
+                <div className="rating-success fade-in visible" style={{ padding: '2rem 0' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
+                  <h4 style={{ color: 'white' }}>Terima kasih atas penilaian Anda!</h4>
+                  <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Ulasan Anda sangat membantu Jastip Kilat menjadi lebih baik.</p>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </section>
