@@ -31,6 +31,7 @@ export default function DriverDashboard() {
   const [orders, setOrders] = useState([
     {
       id: "JK-84712",
+      sequence: 1,
       customerName: "Reza Rahadian",
       phone: "081234567890",
       address: "Kos Warna Kuning Jl. Banjarsari No 10, ditaruh di atas gerbang hitam",
@@ -45,6 +46,7 @@ export default function DriverDashboard() {
     },
     {
       id: "JK-91283",
+      sequence: 2,
       customerName: "Anya Geraldine",
       phone: "089876543210",
       address: "Apartemen Mutiara Tower B, Titip Resepsionis",
@@ -59,6 +61,7 @@ export default function DriverDashboard() {
     },
     {
       id: "JK-55319",
+      sequence: 3,
       customerName: "Raditya Dika",
       phone: "085566778899",
       address: "Jl. Ngesrep Timur V No 45, rumah pagar putih",
@@ -280,9 +283,9 @@ export default function DriverDashboard() {
                     🏪
                   </div>
                   
-                  {activeOrders.map((order, idx) => (
+                  {activeOrders.map((order) => (
                     <div key={order.id} style={{ zIndex: 1, textAlign: 'center', background: '#222', padding: '8px 12px', borderRadius: '50px', border: '2px solid #ffbd2e' }}>
-                      <strong style={{ color: 'white', fontSize: '0.9rem' }}>T{idx + 1}</strong>
+                      <strong style={{ color: 'white', fontSize: '0.9rem' }}>T{order.sequence}</strong>
                     </div>
                   ))}
                 </div>
@@ -357,7 +360,7 @@ export default function DriverDashboard() {
                     {/* Order Header */}
                     <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ background: '#ffbd2e', color: '#000', padding: '4px 12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold' }}>Titik {idx + 1}</span>
+                        <span style={{ background: '#ffbd2e', color: '#000', padding: '4px 12px', borderRadius: '8px', fontSize: '1rem', fontWeight: 'bold' }}>Titik {order.sequence}</span>
                         <div>
                           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Kode Plastik/Pesanan</p>
                           <span style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '1px' }}>{order.id}</span>
