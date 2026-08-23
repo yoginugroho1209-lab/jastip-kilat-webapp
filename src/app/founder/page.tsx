@@ -7,6 +7,9 @@ import "../landing.css";
 export default function FounderDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
 
   // States
   const [menus, setMenus] = useState<any[]>([]);
@@ -37,16 +40,48 @@ export default function FounderDashboard() {
   }, []);
 
   useEffect(() => {
-    fetchAllData();
+    // Check if previously authenticated
+    if (typeof window !== 'undefined') {
+      const auth = localStorage.getItem("jastip_founder_auth");
+      if (auth === "true") {
+        setIsAuthenticated(true);
+        fetchAllData();
+      } else {
+        setLoading(false);
+      }
+    }
   }, [fetchAllData]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
+    if (!isAuthenticated) return;
     const interval = setInterval(() => {
       fetchAllData();
     }, 30000);
     return () => clearInterval(interval);
-  }, [fetchAllData]);
+  }, [fetchAllData, isAuthenticated]);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Default PIN is 1209 (from username) or from env
+    const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || "1209";
+    
+    if (pinInput === ADMIN_PIN) {
+      setIsAuthenticated(true);
+      setPinError(false);
+      setLoading(true); // show loading while fetching data
+      localStorage.setItem("jastip_founder_auth", "true");
+      fetchAllData();
+    } else {
+      setPinError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem("jastip_founder_auth");
+    setActiveTab("overview");
+  };
 
   // Real stats from API
   const platformFeePerItem = stats?.platformFeePerItem || 500;
@@ -100,6 +135,44 @@ export default function FounderDashboard() {
       body: JSON.stringify({ id, resolved: true })
     });
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div className="background-effects">
+          <div className="glow-orb orb-1"></div>
+          <div className="glow-orb orb-2"></div>
+        </div>
+        <div className="glass-card fade-in" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', padding: '2rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💼</div>
+          <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>Founder Dashboard</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Masukkan PIN Admin untuk mengakses data.</p>
+          
+          <form onSubmit={handleLogin}>
+            <input 
+              type="password" 
+              placeholder="Masukkan PIN" 
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              style={{ 
+                width: '100%', padding: '12px', borderRadius: '8px', 
+                border: `1px solid ${pinError ? 'var(--accent-primary)' : 'var(--glass-border)'}`, 
+                background: 'rgba(255,255,255,0.05)', color: 'white', 
+                marginBottom: '1rem', textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem' 
+              }}
+              autoFocus
+            />
+            {pinError && <p style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>PIN Salah!</p>}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Masuk</button>
+          </form>
+          
+          <Link href="/" style={{ display: 'block', marginTop: '1.5rem', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem' }}>
+            ← Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -427,9 +500,15 @@ export default function FounderDashboard() {
         </nav>
 
         <div style={{ padding: '1.5rem', borderTop: '1px solid var(--glass-border)' }}>
-          <Link href="/" className="btn btn-secondary" style={{ width: '100%', display: 'block', textAlign: 'center' }}>
+          <Link href="/" className="btn btn-secondary" style={{ width: '100%', display: 'block', textAlign: 'center', marginBottom: '10px' }}>
             Kembali ke Web Publik
           </Link>
+          <button 
+            onClick={handleLogout}
+            style={{ width: '100%', padding: '10px 15px', textAlign: 'center', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            🚪 Keluar (Logout)
+          </button>
         </div>
       </aside>
 

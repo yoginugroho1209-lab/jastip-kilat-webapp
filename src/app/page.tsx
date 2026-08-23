@@ -55,7 +55,7 @@ export default function Home() {
         <div className="nav-links">
           <a href="#features">Fitur</a>
           <a href="#how-it-works">Cara Kerja</a>
-          <a href="#pricing">Biaya</a>
+          <a href="#portals">Portal</a>
           <Link href="/order" className="btn btn-primary nav-btn">
             Pesan Sekarang
           </Link>
@@ -168,31 +168,32 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="pricing" className="pricing">
-        <div className="pricing-card glass-card fade-in">
-          <h2>Struktur Biaya Transparan</h2>
-          <ul className="pricing-list">
-            <li>
-              <span>Harga Menu</span>
-              <strong>Sesuai Harga Kasir Resto</strong>
-            </li>
-            <li>
-              <span>Ongkos Kirim (0 - 3.5 km)</span>
-              <strong>Rp 7.000 (Flat)</strong>
-            </li>
-            <li>
-              <span>Ongkir Tambahan ({">"} 3.5 km)</span>
-              <strong>+Rp 2.000 / km</strong>
-            </li>
-            <li>
-              <span>Platform Fee</span>
-              <strong>Rp 500 / item</strong>
-            </li>
-          </ul>
-          <div className="pricing-total">
-            <span>Total Bayar</span>
-            <strong>Menu + Ongkir + Fee</strong>
-          </div>
+      <section id="portals" className="pricing">
+        <div className="section-header fade-in">
+          <h2>Pilih Akses Anda</h2>
+          <p>Satu platform terintegrasi untuk seluruh ekosistem JastipKilat.</p>
+        </div>
+        <div className="features-grid" style={{ marginTop: '2rem' }}>
+          <Link href="/order" className="feature-card fade-in delay-1" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <div className="feature-icon" style={{ fontSize: '3rem', color: 'var(--accent-primary)' }}>🍔</div>
+            <h3>Pelanggan</h3>
+            <p>Pesan makanan favorit Anda tanpa markup harga dan lacak driver secara real-time.</p>
+            <div className="btn btn-primary" style={{ marginTop: '1rem', width: '100%' }}>Pesan Sekarang</div>
+          </Link>
+          
+          <Link href="/driver/login" className="feature-card fade-in delay-2" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <div className="feature-icon" style={{ fontSize: '3rem', color: '#ffbd2e' }}>🛵</div>
+            <h3>Mitra Driver</h3>
+            <p>Mulai terima pesanan, kelola pendapatan, dan tarik penghasilan harian Anda.</p>
+            <div className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', borderColor: '#ffbd2e', color: '#ffbd2e' }}>Portal Driver</div>
+          </Link>
+
+          <Link href="/founder" className="feature-card fade-in delay-3" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <div className="feature-icon" style={{ fontSize: '3rem', color: '#ff4b4b' }}>💼</div>
+            <h3>Founder / Admin</h3>
+            <p>Kelola menu, verifikasi pendaftaran driver baru, dan pantau statistik keuangan.</p>
+            <div className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', borderColor: '#ff4b4b', color: '#ff4b4b' }}>Dashboard Admin</div>
+          </Link>
         </div>
       </section>
 
