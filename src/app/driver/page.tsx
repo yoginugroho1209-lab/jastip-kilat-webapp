@@ -96,6 +96,9 @@ export default function DriverDashboard() {
   // Session History
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
 
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+
   useEffect(() => {
     const hasOrders = orders.filter((o: any) => o.status === "pending").length > 0;
     if (hasOrders && driverStatus === "menunggu_customer" && countdown > 0) {
@@ -105,9 +108,6 @@ export default function DriverDashboard() {
       setDriverStatus("mengantri_di_kasir");
     }
   }, [countdown, driverStatus, orders]);
-
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
 
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
