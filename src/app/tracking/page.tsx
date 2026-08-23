@@ -72,7 +72,7 @@ export default function TrackingPage() {
   // Get driver name and items from real order data
   const driverName = orderData?.driver_name || "Driver";
   const orderItems = orderData?.order_items || [];
-  const totalPrice = orderData?.total_price || parseInt(localStorage.getItem("jastip_last_total") || "0");
+  const totalPrice = orderData?.total_price || (typeof window !== 'undefined' ? parseInt(localStorage.getItem("jastip_last_total") || "0") : 0);
 
   const handleFinishOrder = async () => {
     setRatingSubmitted(true);
