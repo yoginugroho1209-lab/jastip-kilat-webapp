@@ -26,9 +26,14 @@ export async function GET() {
 // POST new order (useful for Customer Checkout)
 export async function POST(request: Request) {
   const body = await request.json();
-  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items } = body;
+  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items, driver_name, total_menu_price } = body;
 
-  // Insert Order
+  // Calculate platform fee: Rp 500 per item piece
+  const totalPcs = (items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+  const platformFee = 500 * totalPcs;
+  const totalPrice = (total_menu_price || 0) + (delivery_fee || 0) + platformFee;
+
+  // Insert Order (Only using columns that exist in DB)
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
     .insert({
@@ -62,6 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: itemsError.message }, { status: 500 });
   }
 
+  // Return the full order with ID so the customer can track it
   return NextResponse.json(orderData);
 }
 

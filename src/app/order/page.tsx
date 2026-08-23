@@ -1,10 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MOCK_DRIVERS, MOCK_MENUS, Driver, Menu } from "../data/mock";
+import Map, { Marker } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import "../landing.css"; // Reuse the same styles
+
+type MenuCategory = "Makanan" | "Dimsum" | "Minuman";
+
+interface MenuOption {
+  id: string;
+  name: string;
+  choices: string[];
+}
+
+interface Menu {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: MenuCategory;
+  isAvailable: boolean;
+  options?: MenuOption[];
+}
+
+interface Driver {
+  id: string;
+  name: string;
+  restoName: string;
+  status: string;
+  rating: number;
+  slotsFilled: number;
+  maxSlots: number;
+  eta: string;
+}
 
 interface CartItem extends Menu {
   cartItemId: string;
@@ -17,75 +48,121 @@ export default function OrderPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
-  const [orderHistory, setOrderHistory] = useState<any[]>([]);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
   // API Data States
-  const [apiDrivers, setApiDrivers] = useState<Driver[]>([]);
-  const [apiMenus, setApiMenus] = useState<Menu[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [menus, setMenus] = useState<Menu[]>([]);
+  const [orderHistory, setOrderHistory] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Fetch drivers and menus from API
+  const fetchData = useCallback(async () => {
+    try {
+      const [driversRes, menusRes] = await Promise.all([
+        fetch('/api/drivers').then(r => r.json()),
+        fetch('/api/menus').then(r => r.json())
+      ]);
+
+      // Category emoji map
+      const categoryEmoji: Record<string, string> = {
+        'Makanan': '🍜',
+        'Dimsum': '🥟',
+        'Minuman': '🥤',
+      };
+
+      // Map API drivers to UI format
+      const mappedDrivers: Driver[] = (driversRes || []).map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        rating: d.rating || 5.0,
+        status: d.status === 'active' ? 'menunggu_customer' : d.status === 'pending' ? 'menunggu_customer' : d.status,
+        restoName: "Mie Gacoan Setiabudi",
+        eta: "14:59",
+        slotsFilled: d.active_orders_count || 0,
+        maxSlots: 5
+      }));
+      setDrivers(mappedDrivers);
+
+      // Map API menus to UI format
+      const mappedMenus: Menu[] = (menusRes || []).filter((m: any) => m.is_available).map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        description: m.name,
+        price: m.price,
+        category: m.category as MenuCategory,
+        image: categoryEmoji[m.category] || '🍽️',
+        isAvailable: m.is_available,
+        options: m.category === 'Makanan' && m.name.includes('Lv') ? [
+          { id: 'level', name: 'Level Pedas', choices: m.name.includes('0-4')
+            ? ['Level 0 (Tidak Pedas)', 'Level 1', 'Level 2', 'Level 3', 'Level 4']
+            : m.name.includes('6-8')
+            ? ['Level 6', 'Level 7', 'Level 8']
+            : ['Level 1', 'Level 2', 'Level 3', 'Level 4'] }
+        ] : m.category === 'Minuman' && ['Lemon Tea', 'Chocoan', 'Vanilla Latte', 'Thai Tea', 'Green Thai Tea', 'Teh Tarik', 'Orange', 'Teh', 'Air Mineral'].includes(m.name) ? [
+          { id: 'temp', name: 'Suhu', choices: m.name === 'Air Mineral' ? ['Dingin (Kulkas)', 'Biasa'] : ['Dingin (Es)', 'Panas'] }
+        ] : []
+      }));
+      setMenus(mappedMenus);
+      setLoadingData(false);
+    } catch (err) {
+      console.error("Failed to load data:", err);
+      setLoadingData(false);
+    }
+  }, []);
+
+  // Fetch order history from API
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/orders/history');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const mapped = data
+          .filter((o: any) => o.status === 'delivered')
+          .map((o: any) => ({
+            id: o.id,
+            date: new Date(o.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+            driver: o.driver_name || 'Driver',
+            status: 'Selesai',
+            rating: o.rating || 5,
+            total: o.total_price || 0
+          }));
+        setOrderHistory(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to load history:", err);
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    setHasActiveOrder(localStorage.getItem("jastip_active_order") === "true");
-    const history = JSON.parse(localStorage.getItem("jastip_history") || "[]");
-    
-    if (history.length === 0) {
-      const dummy = [
-        { id: "JK-98213", date: "21 Agu 2026, 12:30", driver: "Andi Wijaya", status: "Selesai", rating: 5, total: 45000 }
-      ];
-      localStorage.setItem("jastip_history", JSON.stringify(dummy));
-      setOrderHistory(dummy);
-    } else {
-      setOrderHistory(history);
+    const savedOrderId = localStorage.getItem("jastip_active_order_id");
+    if (savedOrderId) {
+      setHasActiveOrder(true);
+      setActiveOrderId(savedOrderId);
+      // Check if order is still active
+      fetch(`/api/orders/${savedOrderId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data && ['delivered', 'cancelled', 'failed'].includes(data.status)) {
+            localStorage.removeItem("jastip_active_order_id");
+            setHasActiveOrder(false);
+            setActiveOrderId(null);
+          }
+        })
+        .catch(() => {});
     }
-
-    // Fetch API Data
-    Promise.all([
-      fetch('/api/drivers').then(r => r.json()),
-      fetch('/api/menus').then(r => r.json())
-    ]).then(([driversData, menusData]) => {
-      // Map API drivers to UI format
-      const mappedDrivers = (driversData || []).map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        rating: 5.0,
-        status: d.status === 'pending' ? 'menunggu_customer' : d.status,
-        restoName: "Mie Gacoan Setiabudi",
-        eta: "14:59",
-        slotsFilled: 2,
-        maxSlots: 5
-      }));
-      setApiDrivers(mappedDrivers);
-
-      // Map API menus to UI format (add dummy options for Makanan)
-      const mappedMenus = (menusData || []).filter((m:any) => m.is_available).map((m: any) => ({
-        id: m.id,
-        name: m.name,
-        price: m.price,
-        category: m.category,
-        image: "https://images.unsplash.com/photo-1612927601601-6638404737ce?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-        options: m.category === 'Makanan' ? [
-          { id: 'level', name: 'Level Pedas', choices: ['Level 1', 'Level 2', 'Level 3'] }
-        ] : []
-      }));
-      setApiMenus(mappedMenus);
-      setLoadingData(false);
-    }).catch(err => {
-      console.error(err);
-      setApiDrivers(MOCK_DRIVERS); // fallback
-      setApiMenus(MOCK_MENUS); // fallback
-      setLoadingData(false);
-    });
-
-  }, []);
+    fetchData();
+    fetchHistory();
+  }, [fetchData, fetchHistory]);
 
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
-  
+
   // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentStep, setPaymentStep] = useState<"cart" | "qris">("cart");
-  
+
   // Customize Modal States
   const [activeCustomizeMenu, setActiveCustomizeMenu] = useState<Menu | null>(null);
   const [customizeOptions, setCustomizeOptions] = useState<Record<string, string>>({});
@@ -95,12 +172,15 @@ export default function OrderPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-  const [customerMapsLink, setCustomerMapsLink] = useState("");
+  const [customerLat, setCustomerLat] = useState(-7.055);
+  const [customerLng, setCustomerLng] = useState(110.420);
+  const [viewState, setViewState] = useState({ longitude: 110.420, latitude: -7.055, zoom: 15 });
+  
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
 
   const openCustomizeModal = (menu: Menu) => {
     setActiveCustomizeMenu(menu);
     setCustomizeNote("");
-    // Set default options to first choice
     const defaults: Record<string, string> = {};
     menu.options?.forEach(opt => {
       defaults[opt.id] = opt.choices[0];
@@ -114,7 +194,7 @@ export default function OrderPage() {
 
   const closeCheckoutModal = () => {
     setIsCheckoutOpen(false);
-    setPaymentStep("cart"); // Reset payment step when closed
+    setPaymentStep("cart");
   };
 
   const confirmAddToCart = () => {
@@ -130,10 +210,10 @@ export default function OrderPage() {
           item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { 
-        ...activeCustomizeMenu, 
-        cartItemId, 
-        quantity: 1, 
+      return [...prev, {
+        ...activeCustomizeMenu,
+        cartItemId,
+        quantity: 1,
         selectedOptions: customizeOptions,
         note: customizeNote
       }];
@@ -172,37 +252,47 @@ export default function OrderPage() {
   };
 
   const simulatePaymentSuccess = async () => {
-    // Send POST to /api/orders
+    // Send POST to /api/orders with full data
     const orderPayload = {
       customer_name: customerName || "Customer Guest",
       customer_phone: customerPhone || "08000000000",
-      dropoff_address: customerAddress || "Tembalang",
+      dropoff_address: `${customerAddress || "Tembalang"} | LAT: ${customerLat} | LNG: ${customerLng}`,
       delivery_fee: deliveryFee,
-      sequence: 1, // hardcode for now
+      total_menu_price: totalMenuPrice,
+      driver_name: selectedDriver?.name || null,
+      sequence: 1,
       items: cart.map(c => ({
         menu_id: c.id,
         quantity: c.quantity,
-        notes: `${JSON.stringify(c.selectedOptions)} - ${c.note}`
+        notes: `${Object.values(c.selectedOptions).join(', ')}${c.note ? ' - ' + c.note : ''}`
       }))
     };
 
     try {
-      await fetch('/api/orders', {
+      const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderPayload)
       });
+      const orderData = await res.json();
+
+      if (orderData && orderData.id) {
+        // Save order ID so tracking page can fetch it
+        localStorage.setItem("jastip_active_order_id", orderData.id);
+        localStorage.setItem("jastip_last_total", totalPrice.toString());
+        
+        setCart([]);
+        setIsCheckoutOpen(false);
+        setSelectedDriver(null);
+        setPaymentStep("cart");
+        router.push("/tracking");
+      } else {
+        alert("Gagal membuat pesanan: " + (orderData?.error || "Unknown error"));
+      }
     } catch (e) {
       console.error("Order creation failed", e);
+      alert("Terjadi kesalahan jaringan saat membuat pesanan.");
     }
-
-    localStorage.setItem("jastip_active_order", "true");
-    localStorage.setItem("jastip_last_total", totalPrice.toString());
-    setCart([]);
-    setIsCheckoutOpen(false);
-    setSelectedDriver(null);
-    setPaymentStep("cart");
-    router.push("/tracking");
   };
 
   if (!mounted || loadingData) return <div style={{paddingTop: '100px', textAlign: 'center', color: 'white'}}>Memuat...</div>;
@@ -237,7 +327,7 @@ export default function OrderPage() {
                 <div style={{ fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🛵</div>
                 <div>
                   <h4 style={{ color: '#ffbd2e', margin: '0 0 4px 0' }}>Pesanan Sedang Diproses</h4>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Driver: Budi Santoso</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Order ID: {activeOrderId?.slice(0, 8)}...</p>
                 </div>
               </div>
               <Link href="/tracking" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#ffbd2e', color: '#000' }}>
@@ -260,9 +350,9 @@ export default function OrderPage() {
             <div className="driver-selection fade-in visible">
               <h3>Driver Siap Antar</h3>
               <div className="driver-grid">
-                {apiDrivers.map((driver) => (
-                  <div 
-                    key={driver.id} 
+                {drivers.map((driver) => (
+                  <div
+                    key={driver.id}
                     className={`driver-card ${driver.status !== 'menunggu_customer' ? 'disabled' : ''}`}
                     onClick={() => driver.status === 'menunggu_customer' && setSelectedDriver(driver)}
                   >
@@ -272,9 +362,9 @@ export default function OrderPage() {
                         <span className="rating">⭐ {driver.rating}</span>
                       </div>
                       <span className={`status-badge ${driver.status === 'menunggu_customer' ? 'ready' : 'busy'}`}>
-                        {driver.status === 'menunggu_customer' ? 'Menunggu Customer' : 
-                         driver.status === 'mengantar_pesanan' ? 'Mengantar Pesanan' : 
-                         driver.status === 'mengantri_di_kasir' ? 'Mengantri di Kasir' : 
+                        {driver.status === 'menunggu_customer' ? 'Menunggu Customer' :
+                         driver.status === 'mengantar_pesanan' ? 'Mengantar Pesanan' :
+                         driver.status === 'mengantri_di_kasir' ? 'Mengantri di Kasir' :
                          'Menunggu Pesanan'}
                       </span>
                     </div>
@@ -294,15 +384,17 @@ export default function OrderPage() {
                   </div>
                 ))}
               </div>
-              
-              {/* ORDER HISTORY */}
+
+              {/* ORDER HISTORY from API */}
               <div style={{ marginTop: '3rem' }}>
                 <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Riwayat Pesanan</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {orderHistory.map((hist, idx) => (
+                  {orderHistory.length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem 0' }}>Belum ada riwayat pesanan.</p>
+                  ) : orderHistory.map((hist, idx) => (
                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
                       <div>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{hist.id}</span>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: 'bold' }}>{typeof hist.id === 'string' ? hist.id.slice(0, 8) : hist.id}</span>
                         <h4 style={{ margin: '4px 0' }}>Driver: {hist.driver}</h4>
                         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{hist.date}</p>
                       </div>
@@ -329,20 +421,20 @@ export default function OrderPage() {
                   <p>Driver: {selectedDriver.name} (Sisa slot: {selectedDriver.maxSlots - selectedDriver.slotsFilled})</p>
                 </div>
               </div>
-              
+
               <div className="menu-note glass-card" style={{ marginBottom: '2rem', padding: '1rem', borderLeft: '4px solid var(--accent-primary)' }}>
                 <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
                   💡 <strong>Catatan:</strong> Harga menu sudah termasuk pajak restoran (PB1) dan pembulatan kasir. Tidak ada markup harga (100% harga asli).
                 </p>
               </div>
 
-              {["Makanan", "Dimsum", "Minuman"].map(category => (
+              {(["Makanan", "Dimsum", "Minuman"] as MenuCategory[]).map(category => (
                 <div key={category} className="menu-category-section" style={{ marginBottom: '3rem' }}>
                   <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', color: 'var(--accent-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>
                     {category}
                   </h3>
                   <div className="menu-grid">
-                    {apiMenus.filter(menu => menu.category === category).map((menu) => {
+                    {menus.filter(menu => menu.category === category).map((menu) => {
                       return (
                         <div key={menu.id} className="menu-card">
                           <div className="menu-icon">{menu.image}</div>
@@ -398,8 +490,8 @@ export default function OrderPage() {
               {activeCustomizeMenu.options && activeCustomizeMenu.options.map(opt => (
                 <div key={opt.id} className="form-group" style={{ marginBottom: '1.5rem' }}>
                   <label style={{ fontWeight: 'bold', color: 'white' }}>{opt.name}</label>
-                  <select 
-                    value={customizeOptions[opt.id] || ''} 
+                  <select
+                    value={customizeOptions[opt.id] || ''}
                     onChange={e => setCustomizeOptions({...customizeOptions, [opt.id]: e.target.value})}
                     style={{ width: '100%', padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', color: 'white', borderRadius: '8px', outline: 'none' }}
                   >
@@ -412,9 +504,9 @@ export default function OrderPage() {
 
               <div className="form-group" style={{ marginBottom: '2rem' }}>
                 <label style={{ fontWeight: 'bold', color: 'white' }}>Catatan Khusus (Opsional)</label>
-                <textarea 
-                  placeholder="Misal: Jangan pakai daun bawang, pedas dikit aja..." 
-                  value={customizeNote} 
+                <textarea
+                  placeholder="Misal: Jangan pakai daun bawang, pedas dikit aja..."
+                  value={customizeNote}
                   onChange={e => setCustomizeNote(e.target.value)}
                   rows={3}
                 ></textarea>
@@ -436,19 +528,19 @@ export default function OrderPage() {
               <h3>{paymentStep === "cart" ? "Keranjang & Checkout" : "Pembayaran QRIS"}</h3>
               <button className="btn-close" onClick={closeCheckoutModal}>×</button>
             </div>
-            
+
             <div className="modal-body">
               {paymentStep === "cart" ? (
                 <>
                   <div className="order-summary">
                 <div className="summary-list" style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
-                  {["Makanan", "Dimsum", "Minuman"].map(category => {
+                  {(["Makanan", "Dimsum", "Minuman"] as MenuCategory[]).map(category => {
                     const itemsInCategory = cart
                       .filter(item => item.category === category)
                       .sort((a, b) => a.name.localeCompare(b.name));
-                    
+
                     if (itemsInCategory.length === 0) return null;
-                    
+
                     return (
                       <div key={category} style={{ marginBottom: '1rem' }}>
                         <h5 style={{ color: 'var(--accent-secondary)', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px', marginBottom: '8px', fontSize: '1rem' }}>{category}</h5>
@@ -497,7 +589,7 @@ export default function OrderPage() {
 
               <form className="checkout-form" onSubmit={handleCheckout} style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
                 <h4 style={{ marginBottom: '1rem', color: 'white' }}>Data Pengiriman (Tanpa Registrasi)</h4>
-                
+
                 <div className="menu-note glass-card" style={{ marginBottom: '1.5rem', padding: '1rem', borderLeft: '4px solid #ff5f56', background: 'rgba(255, 95, 86, 0.05)' }}>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                     ⚠️ <strong>Kebijakan Pengantaran Cepat:</strong> Driver <strong>tidak akan menunggu</strong> Anda keluar. Pesanan akan langsung ditaruh sesuai instruksi alamat Anda. Tuliskan detail alamat dan titik taruh selengkap mungkin. Risiko karena detail alamat yang tidak jelas di luar tanggung jawab driver.
@@ -508,24 +600,94 @@ export default function OrderPage() {
                   <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nama Lengkap (Misal: Budi Kos)" />
                 </div>
                 <div className="form-group">
-                  <input 
-                    type="tel" 
-                    required 
-                    value={customerPhone} 
+                  <input
+                    type="tel"
+                    required
+                    value={customerPhone}
                     onChange={e => {
                       const onlyNums = e.target.value.replace(/[^0-9]/g, '');
                       setCustomerPhone(onlyNums);
-                    }} 
-                    placeholder="No. WhatsApp (081234...)" 
+                    }}
+                    placeholder="No. WhatsApp (081234...)"
                   />
                 </div>
-                <div className="form-group">
-                  <input type="url" required value={customerMapsLink} onChange={e => setCustomerMapsLink(e.target.value)} placeholder="Link Google Maps" />
+
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'white', fontWeight: 'bold' }}>Tandai Titik Lokasi Pengiriman</label>
+                  
+                  <div style={{ background: 'rgba(56, 189, 248, 0.05)', borderLeft: '4px solid #38bdf8', padding: '12px', borderRadius: '0 8px 8px 0', marginBottom: '12px' }}>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      <strong>Cara pakai:</strong> Ketuk tombol <strong>"📍 Deteksi Lokasi Saya"</strong> di bawah, lalu izinkan akses GPS. Setelah peta berpindah, geser peta perlahan sampai <strong>Pin Merah</strong> berada pas di atap rumah/kos Anda.
+                    </p>
+                  </div>
+
+                  <div style={{ marginBottom: '10px' }}>
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary pulse" 
+                      style={{ width: '100%', padding: '10px', fontSize: '0.9rem', background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 'bold' }}
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                              setCustomerLat(position.coords.latitude);
+                              setCustomerLng(position.coords.longitude);
+                              setViewState({ ...viewState, latitude: position.coords.latitude, longitude: position.coords.longitude, zoom: 17 });
+                            },
+                            (error) => {
+                              alert("Gagal mendapatkan lokasi Anda. Pastikan izin lokasi (GPS) aktif di browser atau HP Anda.");
+                            },
+                            { enableHighAccuracy: true }
+                          );
+                        } else {
+                          alert("Browser Anda tidak mendukung fitur lokasi.");
+                        }
+                      }}
+                    >
+                      📍 Deteksi Lokasi Saya
+                    </button>
+                  </div>
+
+                  <div style={{ height: '250px', width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                    {mapboxToken ? (
+                      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                        <Map
+                          {...viewState}
+                          onMove={evt => {
+                            setViewState(evt.viewState);
+                            setCustomerLat(evt.viewState.latitude);
+                            setCustomerLng(evt.viewState.longitude);
+                          }}
+                          mapStyle="mapbox://styles/mapbox/dark-v11"
+                          mapboxAccessToken={mapboxToken}
+                        />
+                        {/* Fixed Center Pin Overlay (Anti-shift zooming) */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -100%)',
+                          fontSize: '2.5rem',
+                          pointerEvents: 'none',
+                          filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+                          zIndex: 10
+                        }}>
+                          📍
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.2)', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        Mapbox Token belum dikonfigurasi.
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ fontSize: '0.75rem', marginTop: '4px', color: 'var(--accent-primary)', textAlign: 'center' }}>Titik Tengah Peta: {customerLat.toFixed(5)}, {customerLng.toFixed(5)}</p>
                 </div>
+
                 <div className="form-group">
                   <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Terlengkap & Titik Taruh (Misal: Kos Kuning Jl. Banjarsari No 10, tolong ditaruh di gerbang hitam / titip satpam)" rows={3}></textarea>
                 </div>
-                
+
                 <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
               </form>
               </>

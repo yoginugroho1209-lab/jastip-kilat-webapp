@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import "../landing.css";
 
@@ -12,27 +12,46 @@ export default function FounderDashboard() {
   const [menus, setMenus] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [refunds, setRefunds] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/menus').then(res => res.json()),
-      fetch('/api/drivers').then(res => res.json()),
-      fetch('/api/refunds').then(res => res.json())
-    ]).then(([menusData, driversData, refundsData]) => {
-      setMenus(menusData || []);
-      setDrivers(driversData || []);
-      setRefunds(refundsData || []);
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [menusData, driversData, refundsData, statsData, ordersData] = await Promise.all([
+        fetch('/api/menus').then(res => res.json()),
+        fetch('/api/drivers').then(res => res.json()),
+        fetch('/api/refunds').then(res => res.json()),
+        fetch('/api/stats').then(res => res.json()),
+        fetch('/api/orders/history').then(res => res.json())
+      ]);
+      setMenus(Array.isArray(menusData) ? menusData : []);
+      setDrivers(Array.isArray(driversData) ? driversData : []);
+      setRefunds(Array.isArray(refundsData) ? refundsData : []);
+      setStats(statsData && !statsData.error ? statsData : null);
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
       setLoading(false);
-    }).catch(err => {
+    } catch (err) {
       console.error("Failed to load dashboard data:", err);
       setLoading(false);
-    });
+    }
   }, []);
 
-  // Global Stats
-  const platformFeePerItem = 500;
-  const totalItemsSold = 420; // Dummy
-  const grossRevenue = totalItemsSold * platformFeePerItem;
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAllData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchAllData]);
+
+  // Real stats from API
+  const platformFeePerItem = stats?.platformFeePerItem || 500;
+  const totalItemsSold = stats?.totalItemsSold || 0;
+  const grossRevenue = stats?.grossRevenue || 0;
 
   const toggleMenu = async (id: string, currentStatus: boolean) => {
     // Optimistic UI update
@@ -53,6 +72,26 @@ export default function FounderDashboard() {
     });
   };
 
+  const rejectDriver = async (id: string) => {
+    setDrivers(prev => prev.map(d => d.id === id ? { ...d, status: "rejected" } : d));
+    await fetch('/api/drivers', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'rejected' })
+    });
+  };
+
+  const terminateDriver = async (id: string) => {
+    if (confirm("Hati-hati! Apakah Anda yakin ingin memutus kemitraan dengan driver ini? Driver tidak akan bisa login lagi.")) {
+      setDrivers(prev => prev.map(d => d.id === id ? { ...d, status: "terminated" } : d));
+      await fetch('/api/drivers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'terminated' })
+      });
+    }
+  };
+
   const resolveRefund = async (id: string) => {
     setRefunds(prev => prev.map(r => r.id === id ? { ...r, resolved: true } : r));
     await fetch('/api/refunds', {
@@ -67,15 +106,18 @@ export default function FounderDashboard() {
       case "overview":
         return (
           <div className="fade-in visible">
-            <h2 style={{ marginBottom: '1.5rem', color: 'white' }}>Ringkasan Eksekutif</h2>
-            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ color: 'white', margin: 0 }}>Ringkasan Eksekutif</h2>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>🔄 Auto-refresh 30 detik</span>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               <div style={{ background: 'rgba(74, 222, 128, 0.1)', border: '1px solid #4ade80', padding: '1.5rem', borderRadius: '16px' }}>
                 <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Pendapatan Platform</h4>
                 <h2 style={{ color: '#4ade80', fontSize: '2.5rem', margin: 0 }}>Rp {grossRevenue.toLocaleString('id-ID')}</h2>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dari total {totalItemsSold} item terjual (Rp500/item)</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dari total {totalItemsSold} item terjual (Rp{platformFeePerItem}/item)</p>
               </div>
-              
+
               <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', padding: '1.5rem', borderRadius: '16px' }}>
                 <h4 style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Driver Mengaspal</h4>
                 <h2 style={{ color: '#38bdf8', fontSize: '2.5rem', margin: 0 }}>{drivers.filter(d => d.status === 'active').length} <span style={{fontSize: '1rem', color: 'var(--text-secondary)'}}>Orang</span></h2>
@@ -88,6 +130,63 @@ export default function FounderDashboard() {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Butuh proses manual ke WA</p>
               </div>
             </div>
+
+            {/* Additional Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total Order</p>
+                <h3 style={{ color: 'white', fontSize: '1.8rem', margin: '0.5rem 0 0 0' }}>{stats?.totalOrders || 0}</h3>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Order Aktif</p>
+                <h3 style={{ color: '#ffbd2e', fontSize: '1.8rem', margin: '0.5rem 0 0 0' }}>{stats?.activeOrders || 0}</h3>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Order Selesai</p>
+                <h3 style={{ color: '#4ade80', fontSize: '1.8rem', margin: '0.5rem 0 0 0' }}>{stats?.completedOrders || 0}</h3>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Total Ongkir Terkumpul</p>
+                <h3 style={{ color: 'white', fontSize: '1.5rem', margin: '0.5rem 0 0 0' }}>Rp {(stats?.totalDeliveryFees || 0).toLocaleString('id-ID')}</h3>
+              </div>
+            </div>
+
+            {/* Recent Orders */}
+            <h3 style={{ color: 'white', marginBottom: '1rem' }}>Pesanan Terbaru</h3>
+            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '16px', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid var(--glass-border)' }}>
+                    <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Customer</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Driver</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Status</th>
+                    <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.slice(0, 10).map((o: any) => (
+                    <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '1rem', color: 'white' }}>{o.customer_name}</td>
+                      <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{o.driver_name || '-'}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          background: o.status === 'delivered' ? 'rgba(74, 222, 128, 0.2)' :
+                                      o.status === 'failed' || o.status === 'cancelled' ? 'rgba(255, 95, 86, 0.2)' :
+                                      'rgba(255, 189, 46, 0.2)',
+                          color: o.status === 'delivered' ? '#4ade80' :
+                                 o.status === 'failed' || o.status === 'cancelled' ? '#ff5f56' :
+                                 '#ffbd2e',
+                          padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold'
+                        }}>{o.status}</span>
+                      </td>
+                      <td style={{ padding: '1rem', color: '#4ade80', fontWeight: 'bold' }}>
+                        Rp {(o.total_price || 0).toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
 
@@ -98,7 +197,7 @@ export default function FounderDashboard() {
               <h2 style={{ color: 'white', margin: 0 }}>Manajemen Ketersediaan Menu</h2>
               <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Sync langsung ke Halaman Customer</p>
             </div>
-            
+
             <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '16px', border: '1px solid var(--glass-border)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
@@ -116,7 +215,7 @@ export default function FounderDashboard() {
                       <td style={{ padding: '1rem', color: 'white', fontWeight: 'bold' }}>{m.name}</td>
                       <td style={{ padding: '1rem', color: '#4ade80' }}>Rp {m.price.toLocaleString('id-ID')}</td>
                       <td style={{ padding: '1rem' }}>
-                        <button 
+                        <button
                           onClick={() => toggleMenu(m.id, m.is_available)}
                           style={{
                             background: m.is_available ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255, 95, 86, 0.2)',
@@ -142,15 +241,48 @@ export default function FounderDashboard() {
 
             <h4 style={{ color: '#ffbd2e', marginBottom: '1rem' }}>Menunggu Verifikasi (Pendaftar Baru)</h4>
             <div style={{ display: 'grid', gap: '1rem', marginBottom: '3rem' }}>
-              {drivers.filter(d => d.status === "pending").map(d => (
-                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)', padding: '1.5rem', borderRadius: '12px' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 4px 0', color: 'white' }}>{d.name}</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>WA: {d.phone} • Kendaraan: {d.vehicle}</p>
+              {drivers.filter(d => d.status === "pending").map(d => {
+                const vehicleStr = d.vehicle || '';
+                const hasEmail = vehicleStr.includes('| EMAIL:');
+                const cleanVehicle = hasEmail ? vehicleStr.split('| EMAIL:')[0].trim() : vehicleStr;
+                const email = hasEmail ? vehicleStr.split('| EMAIL:')[1].trim() : '';
+
+                return (
+                  <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)', padding: '1.5rem', borderRadius: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 4px 0', color: 'white' }}>{d.name}</h3>
+                      <p style={{ margin: '0 0 4px 0', color: 'var(--text-secondary)' }}>WA: {d.phone} {email && `• Email: ${email}`}</p>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Kendaraan: {cleanVehicle}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <a 
+                          href={`https://wa.me/${d.phone}?text=Halo%20${d.name},%20saya%20Admin%20JastipKilat.%20Terkait%20berkas%20pendaftaran%20Anda...`} 
+                          target="_blank" rel="noreferrer" 
+                          className="btn btn-secondary" 
+                          style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', border: '1px solid #4ade80', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}
+                        >
+                          💬 Chat WA
+                        </a>
+                        {email && (
+                          <a 
+                            href={`mailto:${email}?subject=Pendaftaran%20Mitra%20JastipKilat%20Diterima!&body=Halo%20${d.name},%0A%0ASelamat!%20Berkas%20pendaftaran%20mitra%20Anda%20telah%20memenuhi%20persyaratan%20dan%20kami%20terima.%0A%0ABerikut%20adalah%20akses%20login%20akun%20Anda:%0A-%20ID%20Driver:%20${d.id}%0A-%20Nama:%20${d.name}%0A-%20No%20WhatsApp:%20${d.phone}%0A-%20PIN:%201234%0A%0ASilakan%20login%20di%20Aplikasi%20JastipKilat.%0A%0ATerima%20kasih,%0AAdmin%20JastipKilat`} 
+                            target="_blank" rel="noreferrer" 
+                            className="btn btn-secondary" 
+                            style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}
+                          >
+                            📧 Kirim Email (PIN)
+                          </a>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => rejectDriver(d.id)} className="btn btn-primary" style={{ background: 'rgba(255, 95, 86, 0.1)', color: '#ff5f56', border: '1px solid #ff5f56', flex: 1, padding: '8px' }}>❌ Tolak</button>
+                        <button onClick={() => approveDriver(d.id)} className="btn btn-primary" style={{ background: '#4ade80', color: 'black', flex: 2, padding: '8px' }}>✔️ Terima & Aktifkan</button>
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={() => approveDriver(d.id)} className="btn btn-primary" style={{ background: '#4ade80', color: 'black' }}>✔️ Terima & Aktifkan</button>
-                </div>
-              ))}
+                );
+              })}
               {drivers.filter(d => d.status === "pending").length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Tidak ada pendaftar baru.</p>}
             </div>
 
@@ -160,10 +292,19 @@ export default function FounderDashboard() {
                 <div key={d.id} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)', padding: '1.5rem', borderRadius: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                     <h3 style={{ margin: 0, color: 'white' }}>{d.name}</h3>
-                    <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>On Duty</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>On Duty</span>
+                      <button 
+                        onClick={() => terminateDriver(d.id)} 
+                        style={{ background: 'rgba(255, 95, 86, 0.1)', color: '#ff5f56', border: '1px solid #ff5f56', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }} 
+                        title="Putus Mitra (Hapus Akses)"
+                      >
+                        🗑️ Putus
+                      </button>
+                    </div>
                   </div>
                   <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>Motor: {d.vehicle}</p>
-                  <p style={{ margin: 0, color: '#ffbd2e', fontWeight: 'bold' }}>📍 {d.currentTask}</p>
+                  <p style={{ margin: 0, color: '#ffbd2e', fontWeight: 'bold' }}>📍 {d.currentTask || 'Standby'}</p>
                 </div>
               ))}
             </div>
@@ -177,38 +318,61 @@ export default function FounderDashboard() {
               <h2 style={{ color: 'white', margin: 0 }}>Pusat Resolusi & Refund</h2>
               <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Tiket keluhan pelanggan/driver</p>
             </div>
-            
+
             <div style={{ display: 'grid', gap: '1rem' }}>
-              {refunds.map(r => (
-                <div key={r.id} style={{ 
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  background: r.resolved ? 'rgba(255,255,255,0.02)' : 'rgba(255, 95, 86, 0.05)', 
-                  border: `1px solid ${r.resolved ? 'var(--glass-border)' : 'rgba(255, 95, 86, 0.3)'}`, 
+              {refunds.length === 0 ? (
+                <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem 0' }}>Belum ada tiket refund.</p>
+              ) : refunds.map(r => {
+                const customerPhone = r.orders?.customer_phone;
+                const driverPhone = r.orders?.drivers?.phone;
+                const driverName = r.orders?.drivers?.name;
+                const customerName = r.orders?.customer_name;
+
+                return (
+                <div key={r.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: r.resolved ? 'rgba(255,255,255,0.02)' : 'rgba(255, 95, 86, 0.05)',
+                  border: `1px solid ${r.resolved ? 'var(--glass-border)' : 'rgba(255, 95, 86, 0.3)'}`,
                   padding: '1.5rem', borderRadius: '12px',
                   opacity: r.resolved ? 0.6 : 1
                 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      <span style={{ background: '#222', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>{r.id}</span>
+                      <span style={{ background: '#222', color: 'white', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        {typeof r.id === 'string' ? r.id.slice(0, 8) : r.id}
+                      </span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                         {new Date(r.created_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
                       </span>
                     </div>
-                    <h4 style={{ margin: '0 0 4px 0', color: 'white' }}>Order ID: {r.order_id}</h4>
-                    <p style={{ margin: 0, color: r.resolved ? 'var(--text-secondary)' : '#ff5f56' }}>Kendala: {r.reason} (Nilai: Rp {r.amount.toLocaleString('id-ID')})</p>
+                    <h4 style={{ margin: '0 0 4px 0', color: 'white' }}>Order ID: {typeof r.order_id === 'string' ? r.order_id.slice(0, 8) : r.order_id}</h4>
+                    <p style={{ margin: '0 0 8px 0', color: r.resolved ? 'var(--text-secondary)' : '#ff5f56' }}>Kendala: {r.reason} (Nilai: Rp {(r.amount || 0).toLocaleString('id-ID')})</p>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {customerPhone && (
+                         <a href={`https://wa.me/${customerPhone}`} target="_blank" rel="noreferrer" style={{ color: 'white', textDecoration: 'none', padding: '4px 8px', fontSize: '0.75rem', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                           📱 WA Cust: {customerName || customerPhone}
+                         </a>
+                      )}
+                      {driverPhone && (
+                         <a href={`https://wa.me/${driverPhone}`} target="_blank" rel="noreferrer" style={{ color: 'white', textDecoration: 'none', padding: '4px 8px', fontSize: '0.75rem', border: '1px solid var(--glass-border)', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                           🛵 WA Driver: {driverName || driverPhone}
+                         </a>
+                      )}
+                    </div>
                   </div>
-                  
+
                   {r.resolved ? (
                     <span style={{ color: '#4ade80', fontWeight: 'bold' }}>✅ Refund Selesai</span>
                   ) : (
-                    <button onClick={() => resolveRefund(r.id)} className="btn btn-primary" style={{ background: '#ff5f56' }}>Selesaikan Manual (WA)</button>
+                    <button onClick={() => resolveRefund(r.id)} className="btn btn-primary" style={{ background: '#ff5f56', padding: '8px 16px' }}>✔️ Tandai Selesai</button>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
-      
+
       default:
         return null;
     }
@@ -229,8 +393,8 @@ export default function FounderDashboard() {
           {[
             { id: 'overview', label: '📊 Ringkasan Eksekutif' },
             { id: 'menus', label: '🍜 Manajemen Menu' },
-            { id: 'drivers', label: '🛵 Mitra Driver' },
-            { id: 'refunds', label: '⚠️ Resolusi & Refund' },
+            { id: 'drivers', label: '🛵 Mitra Driver', badge: drivers.filter(d => d.status === 'pending').length },
+            { id: 'refunds', label: '⚠️ Resolusi & Refund', badge: refunds.filter(r => !r.resolved).length },
           ].map(tab => (
             <button
               key={tab.id}
@@ -241,10 +405,23 @@ export default function FounderDashboard() {
                 color: activeTab === tab.id ? '#ffbd2e' : 'var(--text-secondary)',
                 border: `1px solid ${activeTab === tab.id ? '#ffbd2e' : 'transparent'}`,
                 cursor: 'pointer', fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
               }}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {tab.badge ? (
+                <span style={{
+                  background: tab.id === 'refunds' ? '#ff5f56' : '#ffbd2e',
+                  color: 'black',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold'
+                }}>
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           ))}
         </nav>
