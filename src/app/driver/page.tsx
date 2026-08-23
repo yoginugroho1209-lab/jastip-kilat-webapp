@@ -558,7 +558,7 @@ export default function DriverDashboard() {
         {/* Negotiation Orders Verification */}
         {negotiationOrders.length > 0 && !isResting && (
           <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>⚠️ Permintaan Order Besar (>2 Item)</h3>
+            <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>⚠️ Permintaan Order Besar (&gt;2 Item)</h3>
             <div style={{ display: 'grid', gap: '1rem' }}>
               {negotiationOrders.map((order: any) => (
                 <div key={order.id} style={{ background: 'rgba(250, 204, 21, 0.1)', border: '1px solid #facc15', padding: '1rem', borderRadius: '12px' }}>
