@@ -30,6 +30,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'PIN salah.' }, { status: 401 });
       }
 
+      // Check Status
+      if (driver.status === 'rejected') {
+        return NextResponse.json({ error: 'Pendaftaran Anda ditolak oleh Admin. Silakan hubungi Admin.' }, { status: 403 });
+      }
+      if (driver.status === 'terminated') {
+        return NextResponse.json({ error: 'Akun Anda telah dinonaktifkan (Diputus Mitra). Silakan hubungi Admin.' }, { status: 403 });
+      }
+
       return NextResponse.json({ 
         success: true, 
         driver: {
