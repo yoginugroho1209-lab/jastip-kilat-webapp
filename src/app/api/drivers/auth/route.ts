@@ -25,16 +25,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Nomor WhatsApp tidak ditemukan. Silakan daftar melalui admin.' }, { status: 404 });
       }
 
-      // Check PIN (allow bypass for testing if pin column doesn't exist yet, but enforce it if it does)
-      if (driver.pin !== undefined && driver.pin !== null && driver.pin !== pin) {
+      // Check PIN
+      if (driver.pin !== pin) {
         return NextResponse.json({ error: 'PIN salah.' }, { status: 401 });
-      } else if (driver.pin === undefined) {
-        // Fallback for MVP if column isn't properly set up yet
-        if (phone === '085624251767' && pin !== '1221') {
-           return NextResponse.json({ error: 'PIN salah.' }, { status: 401 });
-        } else if (phone !== '085624251767' && pin !== '1234') {
-           return NextResponse.json({ error: 'PIN salah (Gunakan 1234 untuk akses sementara karena DB belum di-update).' }, { status: 401 });
-        }
       }
 
       return NextResponse.json({ 
@@ -88,6 +81,29 @@ export async function POST(request: Request) {
         }
       }
 
+      // Generate unique 4-digit PIN
+      let pinStr = '';
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 10) {
+        const pinNum = Math.floor(1000 + Math.random() * 9000);
+        pinStr = pinNum.toString();
+        const { data: existingPins } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('pin', pinStr)
+          .limit(1);
+        if (!existingPins || existingPins.length === 0) {
+          isUnique = true;
+        }
+        attempts++;
+      }
+
+      if (!isUnique) {
+        // Fallback if somehow 10 collisions happen
+        pinStr = Math.floor(1000 + Math.random() * 9000).toString();
+      }
+
       // Insert new driver with status 'pending'
       const { data: newDriver, error: insertError } = await supabase
         .from('drivers')
@@ -96,6 +112,7 @@ export async function POST(request: Request) {
           phone,
           vehicle,
           status: 'pending', // Must pay to become active
+          pin: pinStr,
         })
         .select()
         .single();

@@ -368,7 +368,7 @@ export default function FounderDashboard() {
                         </a>
                         {email && (
                           <a 
-                            href={`mailto:${email}?subject=Pendaftaran%20Mitra%20JastipKilat%20Diterima!&body=Halo%20${d.name},%0A%0ASelamat!%20Berkas%20pendaftaran%20mitra%20Anda%20telah%20memenuhi%20persyaratan%20dan%20kami%20terima.%0A%0ABerikut%20adalah%20akses%20login%20akun%20Anda:%0A-%20ID%20Driver:%20${d.id}%0A-%20Nama:%20${d.name}%0A-%20No%20WhatsApp:%20${d.phone}%0A-%20PIN:%201234%0A%0ASilakan%20login%20di%20Aplikasi%20JastipKilat.%0A%0ATerima%20kasih,%0AAdmin%20JastipKilat`} 
+                            href={`mailto:${email}?subject=Pendaftaran%20Mitra%20JastipKilat%20Diterima!&body=Halo%20${d.name},%0A%0ASelamat!%20Berkas%20pendaftaran%20mitra%20Anda%20telah%20memenuhi%20persyaratan%20dan%20kami%20terima.%0A%0ABerikut%20adalah%20akses%20login%20akun%20Anda:%0A-%20ID%20Driver:%20${d.id}%0A-%20Nama:%20${d.name}%0A-%20No%20WhatsApp:%20${d.phone}%0A-%20PIN:%20${d.pin || '1234'}%0A%0ASilakan%20login%20di%20Aplikasi%20JastipKilat.%0A%0ATerima%20kasih,%0AAdmin%20JastipKilat`} 
                             target="_blank" rel="noreferrer" 
                             className="btn btn-secondary" 
                             style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}
