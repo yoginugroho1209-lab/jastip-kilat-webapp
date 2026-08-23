@@ -106,6 +106,18 @@ export default function DriverDashboard() {
   // Fetch orders from API
   const fetchOrders = useCallback(async () => {
     try {
+      if (!driver || !driver.id) return;
+      
+      // Verify driver status first to ensure they aren't terminated/rejected
+      const statusRes = await fetch(`/api/drivers?id=${driver.id}`);
+      const statusData = await statusRes.json();
+      if (statusData && (statusData.status === 'terminated' || statusData.status === 'rejected')) {
+        // Kick out
+        localStorage.removeItem("jastip_driver_session");
+        router.push("/driver/login");
+        return;
+      }
+
       const res = await fetch('/api/orders');
       const data = await res.json();
       if (!data || data.error) throw new Error(data?.error || "Error");
