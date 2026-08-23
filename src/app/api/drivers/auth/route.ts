@@ -56,12 +56,17 @@ export async function POST(request: Request) {
       // Check if phone already exists
       const { data: existing } = await supabase
         .from('drivers')
-        .select('id')
+        .select('id, status')
         .eq('phone', phone)
         .single();
 
       if (existing) {
-        return NextResponse.json({ error: 'Nomor WhatsApp sudah terdaftar. Silakan login atau gunakan nomor lain.' }, { status: 400 });
+        if (existing.status === 'rejected' || existing.status === 'terminated') {
+          // Allow re-registration by deleting the old record first
+          await supabase.from('drivers').delete().eq('id', existing.id);
+        } else {
+          return NextResponse.json({ error: 'Nomor WhatsApp sudah terdaftar. Silakan login atau gunakan nomor lain.' }, { status: 400 });
+        }
       }
 
       // Check if email already exists (parsed from vehicle string: "Motor | EMAIL: user@gmail.com")
@@ -70,12 +75,16 @@ export async function POST(request: Request) {
         const email = emailMatch[1].trim();
         const { data: existingEmail } = await supabase
           .from('drivers')
-          .select('id')
+          .select('id, status')
           .ilike('vehicle', `%EMAIL: ${email}%`)
           .limit(1);
 
         if (existingEmail && existingEmail.length > 0) {
-          return NextResponse.json({ error: 'Alamat Email sudah terdaftar. Silakan gunakan email lain.' }, { status: 400 });
+          if (existingEmail[0].status === 'rejected' || existingEmail[0].status === 'terminated') {
+            await supabase.from('drivers').delete().eq('id', existingEmail[0].id);
+          } else {
+            return NextResponse.json({ error: 'Alamat Email sudah terdaftar. Silakan gunakan email lain.' }, { status: 400 });
+          }
         }
       }
 
