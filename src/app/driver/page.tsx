@@ -535,9 +535,9 @@ export default function DriverDashboard() {
                 <div key={order.id} style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf8', padding: '1rem', borderRadius: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <h4 style={{ color: 'white', margin: '0 0 4px 0' }}>{order.customer_name}</h4>
-                      <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>📍 {order.dropoff_address}</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>💰 Ongkir: Rp {order.delivery_fee.toLocaleString('id-ID')}</p>
+                      <h4 style={{ color: 'white', margin: '0 0 4px 0' }}>{order.customerName}</h4>
+                      <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>📍 {order.address}</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>💰 Ongkir: Rp {(order.deliveryFee || 0).toLocaleString('id-ID')}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button 
