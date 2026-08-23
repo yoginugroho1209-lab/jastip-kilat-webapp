@@ -112,7 +112,8 @@ export default function DriverDashboard() {
       const statusRes = await fetch(`/api/drivers?id=${driver.id}`);
       const statusData = await statusRes.json();
       if (statusData && (statusData.status === 'terminated' || statusData.status === 'rejected')) {
-        // Kick out
+        // Kick out with notification
+        window.alert('Akun Anda telah dinonaktifkan (Diputus Mitra) oleh Admin. Anda akan segera dikeluarkan.');
         localStorage.removeItem("jastip_driver_session");
         router.push("/driver/login");
         return;
