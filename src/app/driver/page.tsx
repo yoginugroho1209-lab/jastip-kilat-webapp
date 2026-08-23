@@ -426,9 +426,24 @@ export default function DriverDashboard() {
                 <input 
                   type="checkbox" 
                   checked={isResting}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const resting = e.target.checked;
                     setIsResting(resting);
+                    
+                    // Update backend status real-time
+                    try {
+                      await fetch('/api/drivers', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          id: driver.id,
+                          current_task: resting ? 'Istirahat' : 'Ready'
+                        })
+                      });
+                    } catch (err) {
+                      console.error("Failed to update status", err);
+                    }
+
                     alert(resting ? "Anda sekarang berstatus ISTIRAHAT. Daftar orderan disembunyikan." : "Anda sekarang READY. Menunggu pesanan masuk...");
                   }}
                   style={{ opacity: 0, width: 0, height: 0 }} 
