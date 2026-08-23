@@ -231,6 +231,8 @@ export default function OrderPage() {
   const [customizeNote, setCustomizeNote] = useState("");
   const [customizeQuantity, setCustomizeQuantity] = useState(1);
   const [showWarningModal, setShowWarningModal] = useState(false);
+  const [hasWarnedLargeQuantity, setHasWarnedLargeQuantity] = useState(false);
+  const [showCheckoutConfirmModal, setShowCheckoutConfirmModal] = useState(false);
 
   // Checkout Form States
   const [customerName, setCustomerName] = useState("");
@@ -288,19 +290,25 @@ export default function OrderPage() {
     closeCustomizeModal();
   };
 
+  const checkCategoryWarning = (newCart: CartItem[]) => {
+    if (hasWarnedLargeQuantity) return;
+    const catCount: Record<string, number> = {};
+    newCart.forEach(item => {
+      const cat = item.category || 'Lainnya';
+      catCount[cat] = (catCount[cat] || 0) + item.quantity;
+    });
+    if (Object.values(catCount).some(count => count >= 3)) {
+      setShowWarningModal(true);
+    }
+  };
+
   const addExistingCartItem = (cartItemId: string) => {
     setCart((prev) => {
       const newCart = prev.map((item) =>
         item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
       );
       
-      const itemToUpdate = newCart.find(i => i.cartItemId === cartItemId);
-      if (itemToUpdate) {
-        const catCount = newCart.filter(i => i.category === itemToUpdate.category).reduce((acc, curr) => acc + curr.quantity, 0);
-        if (catCount >= 3) {
-          setShowWarningModal(true);
-        }
-      }
+      checkCategoryWarning(newCart);
       return newCart;
     });
   };
@@ -336,12 +344,17 @@ export default function OrderPage() {
     if (!selectedDriver) return alert("Silakan pilih driver terlebih dahulu.");
 
     if (hasLargeCategory) {
-      if (!confirm("Item per kategori terlalu banyak (> 2 item). Hal ini kemungkinan akan ditolak oleh driver. Lanjutkan mengirim permintaan persetujuan ke driver?")) {
-        return; // User cancelled
-      }
-      
-      const orderPayload = {
-        customer_name: customerName || "Customer Guest",
+      setShowCheckoutConfirmModal(true);
+    } else {
+      setPaymentStep("qris");
+    }
+  };
+
+  const handleConfirmLargeCheckout = async () => {
+    setShowCheckoutConfirmModal(false);
+    
+    const orderPayload = {
+      customer_name: customerName || "Customer Guest",
         customer_phone: customerPhone || "08000000000",
         dropoff_address: `${customerAddress || "Tembalang"} | LAT: ${customerLat} | LNG: ${customerLng}`,
         delivery_fee: deliveryFee,
@@ -375,9 +388,6 @@ export default function OrderPage() {
         console.error(err);
         alert("Terjadi kesalahan jaringan.");
       }
-    } else {
-      setPaymentStep("qris");
-    }
   };
 
   const simulatePaymentSuccess = async () => {
@@ -726,18 +736,43 @@ export default function OrderPage() {
         </div>
       )}
 
-      {/* Warning > 2 Items Modal */}
+      {/* Warning Large Quantity Modal */}
       {showWarningModal && (
-        <div className="modal-overlay" style={{ zIndex: 300 }}>
-          <div className="modal-content glass-card bounce-in" style={{ textAlign: 'center', background: 'rgba(255, 95, 86, 0.1)', border: '2px solid #ff5f56' }}>
-            <div style={{ fontSize: '5rem', animation: 'pulse 1s infinite' }}>⚠️</div>
-            <h2 style={{ color: '#ff5f56', marginBottom: '1rem', marginTop: '1rem', fontSize: '2rem' }}>PERINGATAN JUMLAH PESANAN</h2>
-            <p style={{ color: 'white', fontSize: '1.1rem', marginBottom: '2rem' }}>
-              Anda memesan lebih dari 2 item pada kategori ini. Driver kemungkinan akan memerlukan <strong>persetujuan khusus</strong> atau menolak pesanan jika terlalu banyak.
+        <div className="modal-overlay">
+          <div className="modal-content glass-card fade-in visible" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }}>⚠️</div>
+            <h3 style={{ color: '#ff5f56', marginBottom: '1rem' }}>PERINGATAN JUMLAH PESANAN</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+              Anda memesan lebih dari 2 item untuk kategori ini. 
+              Pesanan dalam jumlah besar memerlukan persetujuan khusus dari driver dan memiliki kemungkinan ditolak.
             </p>
-            <button className="btn btn-primary btn-block" style={{ background: '#ff5f56', border: 'none' }} onClick={() => setShowWarningModal(false)}>
+            <button className="btn btn-primary btn-block" onClick={() => {
+              setShowWarningModal(false);
+              setHasWarnedLargeQuantity(true);
+            }}>
               Saya Mengerti
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Confirm Large Quantity Modal */}
+      {showCheckoutConfirmModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-card fade-in visible" style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }}>🤔</div>
+            <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Konfirmasi Pesanan Besar</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+              Pesanan Anda (lebih dari 2 item per kategori) berisiko ditolak oleh driver karena kapasitas yang terbatas. Lanjutkan mengirim permintaan persetujuan ke driver?
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowCheckoutConfirmModal(false)}>
+                Batal
+              </button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleConfirmLargeCheckout}>
+                Lanjutkan
+              </button>
+            </div>
           </div>
         </div>
       )}

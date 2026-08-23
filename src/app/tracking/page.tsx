@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../utils/supabase/client";
 import "../landing.css";
 
 export default function TrackingPage() {
@@ -70,16 +71,31 @@ export default function TrackingPage() {
     }
   }, [fetchOrder, fetchActiveOrders]);
 
-  // Poll order status every 5 seconds (so driver updates appear in real-time)
+  // Fallback Polling + Real-time updates via Supabase
   useEffect(() => {
-    if (!orderId) {
-      const interval = setInterval(fetchActiveOrders, 5000);
-      return () => clearInterval(interval);
-    }
+    // Fallback polling
     const interval = setInterval(() => {
-      fetchOrder(orderId);
-    }, 5000);
-    return () => clearInterval(interval);
+      if (orderId) fetchOrder(orderId);
+      else fetchActiveOrders();
+    }, 10000);
+
+    // Realtime channel
+    const channelId = orderId ? `tracking_order_${orderId}` : `tracking_all_active`;
+    const filter = orderId 
+      ? { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }
+      : { event: '*', schema: 'public', table: 'orders' };
+
+    const channel = supabase.channel(channelId)
+      .on('postgres_changes', filter as any, payload => {
+        if (orderId) fetchOrder(orderId);
+        else fetchActiveOrders();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [orderId, fetchOrder, fetchActiveOrders]);
 
   useEffect(() => {

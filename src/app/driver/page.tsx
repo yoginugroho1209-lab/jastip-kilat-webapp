@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { supabase } from "../../utils/supabase/client";
 import "../landing.css"; // Reuse aesthetics
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
@@ -210,13 +211,27 @@ export default function DriverDashboard() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Auto-refresh orders every 10 seconds (so new customer orders appear)
+  // Auto-refresh orders every 10 seconds as fallback
   useEffect(() => {
     const interval = setInterval(() => {
       fetchOrders();
     }, 10000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
+
+  // Real-time updates via Supabase
+  useEffect(() => {
+    if (!driver || !driver.id) return;
+    const channel = supabase.channel(`driver_orders_${driver.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+        fetchOrders();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [driver, fetchOrders]);
 
   const negotiationOrders = orders.filter(o => o.status === "negotiation_pending");
   const pendingOrders = orders.filter(o => o.status === "pending");
