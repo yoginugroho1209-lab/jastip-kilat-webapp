@@ -157,7 +157,7 @@ export default function FounderDashboard() {
           <div className="glow-orb orb-1"></div>
           <div className="glow-orb orb-2"></div>
         </div>
-        <div className="glass-card fade-in" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', padding: '2rem' }}>
+        <div className="glass-card fade-in visible" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', padding: '2rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💼</div>
           <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>Founder Dashboard</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Verifikasi ketat untuk Admin Utama.</p>
