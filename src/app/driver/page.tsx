@@ -638,8 +638,7 @@ export default function DriverDashboard() {
                 <h3 style={{ color: 'white' }}>Sesi Pengantaran Selesai!</h3>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Anda telah menyelesaikan semua titik pengantaran dengan sukses.</p>
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                  <button className="btn btn-secondary" onClick={() => alert("Anda Offline. Selamat Beristirahat!")}>☕ Istirahat/Offline</button>
-                  <button className="btn btn-primary" onClick={resetSession}>🛵 Mulai Sesi Baru</button>
+                  {/* Buttons removed per request */}
                 </div>
 
                 {/* Session History */}
