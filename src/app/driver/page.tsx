@@ -228,8 +228,11 @@ export default function DriverDashboard() {
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newStatus = e.target.value;
-
     // Validations
+    if (activeOrders.length === 0 && newStatus !== "menunggu_customer") {
+      alert("❌ Gagal! Belum ada pesanan masuk. Tidak bisa melanjutkan ke tahap berikutnya.");
+      return;
+    }
     if (newStatus === "menunggu_pesanan") {
       const allOrdered = activeOrders.every(o => o.items.every((i: any) => i.ordered));
       if (!allOrdered) {
