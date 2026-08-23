@@ -156,7 +156,7 @@ export default function DriverDashboard() {
         }
       }
 
-      const res = await fetch('/api/orders');
+      const res = await fetch(`/api/orders?driver_id=${driver.id}`);
       const data = await res.json();
       if (!data || data.error) throw new Error(data?.error || "Error");
 

@@ -4,19 +4,29 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
 // GET active orders (useful for Driver Dashboard)
-export async function GET() {
-  // For the driver dashboard, we fetch pending/in-progress orders
-  const { data, error } = await supabase
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const driverId = searchParams.get('driver_id');
+
+  let query = supabase
     .from('orders')
     .select(`
       *,
       order_items (
         *,
         menus (*)
-      )
+      ),
+      drivers (*)
     `)
     .neq('status', 'delivered')
     .order('sequence', { ascending: true });
+
+  // If driver_id is provided, only return orders for that driver
+  if (driverId) {
+    query = query.eq('driver_id', driverId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,7 +38,7 @@ export async function GET() {
 // POST new order (useful for Customer Checkout)
 export async function POST(request: Request) {
   const body = await request.json();
-  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items, driver_name, total_menu_price, status } = body;
+  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items, driver_name, total_menu_price, status, driver_id } = body;
 
   // Calculate platform fee: Rp 500 per item piece
   const totalPcs = (items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
@@ -44,7 +54,8 @@ export async function POST(request: Request) {
       dropoff_address,
       delivery_fee,
       sequence,
-      status: status || 'pending'
+      status: status || 'pending',
+      ...(driver_id ? { driver_id } : {})
     })
     .select()
     .single();

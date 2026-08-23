@@ -274,6 +274,7 @@ export default function OrderPage() {
         delivery_fee: deliveryFee,
         total_menu_price: totalMenuPrice,
         driver_name: selectedDriver.name,
+        driver_id: selectedDriver.id,
         sequence: 1,
         status: 'negotiation_pending', // Special status to trigger driver pre-approval
         items: cart.map(c => ({
@@ -332,6 +333,7 @@ export default function OrderPage() {
           delivery_fee: deliveryFee,
           total_menu_price: totalMenuPrice,
           driver_name: selectedDriver?.name || null,
+          driver_id: selectedDriver?.id || null,
           sequence: 1,
           status: 'accepted',
           items: cart.map(c => ({
