@@ -414,7 +414,7 @@ export default function FounderDashboard() {
                                 body: JSON.stringify({ id: d.id, status: 'frozen' })
                               });
                               alert(`Akun ${d.name} berhasil dibekukan.`);
-                              fetchData();
+                              fetchAllData();
                             } catch (e) {
                               console.error(e);
                             }
