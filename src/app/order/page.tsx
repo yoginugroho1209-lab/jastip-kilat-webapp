@@ -71,17 +71,19 @@ export default function OrderPage() {
         'Minuman': '🥤',
       };
 
-      // Map API drivers to UI format
-      const mappedDrivers: Driver[] = (driversRes || []).map((d: any) => ({
-        id: d.id,
-        name: d.name,
-        rating: d.rating || 5.0,
-        status: d.status === 'active' ? 'menunggu_customer' : d.status === 'pending' ? 'menunggu_customer' : d.status,
-        restoName: "Mie Gacoan Setiabudi",
-        eta: "14:59",
-        slotsFilled: d.active_orders_count || 0,
-        maxSlots: 5
-      }));
+      // Map API drivers to UI format and filter out resting drivers
+      const mappedDrivers: Driver[] = (driversRes || [])
+        .filter((d: any) => d.status === 'active' && d.current_task !== 'Istirahat')
+        .map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          rating: d.rating || 5.0,
+          status: 'menunggu_customer',
+          restoName: "Mie Gacoan Setiabudi",
+          eta: "14:59",
+          slotsFilled: d.active_orders_count || 0,
+          maxSlots: 5
+        }));
       setDrivers(mappedDrivers);
 
       // Map API menus to UI format
