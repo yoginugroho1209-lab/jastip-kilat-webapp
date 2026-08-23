@@ -91,19 +91,20 @@ export default function DriverDashboard() {
   const [reportDescription, setReportDescription] = useState("");
 
   // Timer Logic
-  const [countdown, setCountdown] = useState(15); // 15 seconds for demo purposes
+  const [countdown, setCountdown] = useState(900); // 15 minutes
 
   // Session History
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
 
   useEffect(() => {
-    if (driverStatus === "menunggu_customer" && countdown > 0) {
+    const hasOrders = orders.filter((o: any) => o.status === "pending").length > 0;
+    if (hasOrders && driverStatus === "menunggu_customer" && countdown > 0) {
       const timerId = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timerId);
-    } else if (driverStatus === "menunggu_customer" && countdown === 0) {
+    } else if (hasOrders && driverStatus === "menunggu_customer" && countdown === 0) {
       setDriverStatus("mengantri_di_kasir");
     }
-  }, [countdown, driverStatus]);
+  }, [countdown, driverStatus, orders]);
 
   const [orders, setOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -392,7 +393,7 @@ export default function DriverDashboard() {
   const resetSession = () => {
     // Reset for next session
     setDriverStatus("menunggu_customer");
-    setCountdown(15);
+    setCountdown(900);
     fetchOrders(); // Refresh from backend
   };
 
@@ -553,8 +554,14 @@ export default function DriverDashboard() {
                   {/* Show countdown if Menunggu Customer */}
                   {driverStatus === "menunggu_customer" && (
                     <div style={{ background: 'rgba(0,0,0,0.5)', padding: '8px', borderRadius: '8px', textAlign: 'center', marginBottom: '10px', border: '1px solid #ffbd2e' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Otomatis berangkat dalam</span><br/>
-                      <strong style={{ fontSize: '1.5rem', color: '#ffbd2e' }}>00:{countdown.toString().padStart(2, '0')}</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {orders.filter((o: any) => o.status === "pending").length > 0 
+                          ? 'Otomatis berangkat dalam' 
+                          : 'Menunggu orderan masuk...'}
+                      </span><br/>
+                      <strong style={{ fontSize: '1.5rem', color: '#ffbd2e' }}>
+                        {String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}
+                      </strong>
                     </div>
                   )}
 
