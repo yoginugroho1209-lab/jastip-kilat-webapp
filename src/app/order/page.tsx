@@ -323,18 +323,17 @@ export default function OrderPage() {
   const platformFee = 500 * totalItems;
   const totalPrice = totalMenuPrice + deliveryFee + platformFee;
 
+  // Check categories quantity limit for UI changes
+  const catCount: Record<string, number> = {};
+  cart.forEach(item => {
+    const cat = item.category || 'Lainnya';
+    catCount[cat] = (catCount[cat] || 0) + item.quantity;
+  });
+  const hasLargeCategory = Object.values(catCount).some(count => count > 2);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDriver) return alert("Silakan pilih driver terlebih dahulu.");
-
-    // Check categories quantity limit
-    const catCount: Record<string, number> = {};
-    cart.forEach(item => {
-      const cat = item.category || 'Lainnya';
-      catCount[cat] = (catCount[cat] || 0) + item.quantity;
-    });
-
-    const hasLargeCategory = Object.values(catCount).some(count => count > 2);
 
     if (hasLargeCategory) {
       if (!confirm("Item per kategori terlalu banyak (> 2 item). Hal ini kemungkinan akan ditolak oleh driver. Lanjutkan mengirim permintaan persetujuan ke driver?")) {
@@ -945,7 +944,9 @@ export default function OrderPage() {
                   <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Terlengkap & Titik Taruh (Misal: Kos Kuning Jl. Banjarsari No 10, tolong ditaruh di gerbang hitam / titip satpam)" rows={3}></textarea>
                 </div>
 
-                <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
+                <button type="submit" className="btn btn-primary btn-block">
+                  {hasLargeCategory ? "Konfirmasi ke Driver (Kuantitas Besar)" : "Bayar via QRIS Sekarang"}
+                </button>
               </form>
               </>
               ) : paymentStep === "negotiating" ? (
