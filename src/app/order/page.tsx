@@ -127,7 +127,11 @@ export default function OrderPage() {
             driver: o.driver_name || 'Driver',
             status: 'Selesai',
             rating: o.rating || 5,
-            total: o.total_price || 0
+            total: o.total_price || 0,
+            customer_name: o.customer_name,
+            customer_phone: o.customer_phone,
+            dropoff_address: o.dropoff_address,
+            items: o.order_items || []
           }));
         setOrderHistory(mapped);
       }
@@ -163,13 +167,70 @@ export default function OrderPage() {
   // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<"cart" | "qris" | "negotiating">("cart");
+  const [paymentStep, setPaymentStep] = useState<"cart" | "qris" | "negotiating" | "rejected">("cart");
   const [negotiationOrderId, setNegotiationOrderId] = useState<string | null>(null);
+  const [negotiationStartTime, setNegotiationStartTime] = useState<number>(0);
+
+  const handlePesanLagi = (hist: any) => {
+    // Populate form data
+    if (hist.customer_name) setCustomerName(hist.customer_name);
+    if (hist.customer_phone) setCustomerPhone(hist.customer_phone);
+    if (hist.dropoff_address) {
+      const parts = hist.dropoff_address.split(" | LAT: ");
+      if (parts.length > 1) {
+        setCustomerAddress(parts[0]);
+        const coords = parts[1].split(" | LNG: ");
+        if (coords.length > 1) {
+          const lat = parseFloat(coords[0]);
+          const lng = parseFloat(coords[1]);
+          setCustomerLat(lat);
+          setCustomerLng(lng);
+          setViewState({ ...viewState, latitude: lat, longitude: lng });
+        }
+      } else {
+        setCustomerAddress(hist.dropoff_address);
+      }
+    }
+
+    // Populate cart
+    if (hist.items && hist.items.length > 0) {
+      const newCart: CartItem[] = hist.items.map((item: any) => {
+        const menu = item.menus;
+        
+        // Parse notes to get selectedOptions and note
+        // notes format: "Option1, Option2 - Custom note"
+        let selectedOptions: Record<string, string> = {};
+        let note = "";
+        
+        if (item.notes) {
+          const splitNotes = item.notes.split(" - ");
+          if (splitNotes.length > 1) {
+            note = splitNotes.slice(1).join(" - ");
+          }
+          // Note: extracting exact options from comma separated string is tricky without full options schema, 
+          // we'll just try to map them if needed or just keep it simple.
+          // For now, we will just use a generic mapping or empty since it's hard to reverse engineer the options from a string exactly.
+        }
+
+        return {
+          ...menu,
+          cartItemId: `${menu.id}_${item.notes || ''}_revived`,
+          quantity: item.quantity,
+          selectedOptions: {}, // Simplify for 'pesan lagi'
+          note: item.notes || ''
+        };
+      });
+      setCart(newCart);
+      alert("Pesanan berhasil dimuat ke keranjang. Silakan periksa keranjang Anda.");
+    }
+  };
 
   // Customize Modal States
   const [activeCustomizeMenu, setActiveCustomizeMenu] = useState<Menu | null>(null);
   const [customizeOptions, setCustomizeOptions] = useState<Record<string, string>>({});
   const [customizeNote, setCustomizeNote] = useState("");
+  const [customizeQuantity, setCustomizeQuantity] = useState(1);
+  const [showWarningModal, setShowWarningModal] = useState(false);
 
   // Checkout Form States
   const [customerName, setCustomerName] = useState("");
@@ -184,6 +245,8 @@ export default function OrderPage() {
   const openCustomizeModal = (menu: Menu) => {
     setActiveCustomizeMenu(menu);
     setCustomizeNote("");
+    setCustomizeQuantity(1);
+    setShowWarningModal(false);
     const defaults: Record<string, string> = {};
     menu.options?.forEach(opt => {
       defaults[opt.id] = opt.choices[0];
@@ -210,13 +273,13 @@ export default function OrderPage() {
       const existing = prev.find((item) => item.cartItemId === cartItemId);
       if (existing) {
         return prev.map((item) =>
-          item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
+          item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + customizeQuantity } : item
         );
       }
       return [...prev, {
         ...activeCustomizeMenu,
         cartItemId,
-        quantity: 1,
+        quantity: customizeQuantity,
         selectedOptions: customizeOptions,
         note: customizeNote
       }];
@@ -226,9 +289,20 @@ export default function OrderPage() {
   };
 
   const addExistingCartItem = (cartItemId: string) => {
-    setCart((prev) => prev.map((item) =>
-      item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
-    ));
+    setCart((prev) => {
+      const newCart = prev.map((item) =>
+        item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
+      );
+      
+      const itemToUpdate = newCart.find(i => i.cartItemId === cartItemId);
+      if (itemToUpdate) {
+        const catCount = newCart.filter(i => i.category === itemToUpdate.category).reduce((acc, curr) => acc + curr.quantity, 0);
+        if (catCount >= 3) {
+          setShowWarningModal(true);
+        }
+      }
+      return newCart;
+    });
   };
 
   const removeCartItem = (cartItemId: string) => {
@@ -293,6 +367,7 @@ export default function OrderPage() {
         const orderData = await res.json();
         if (orderData && orderData.id) {
           setNegotiationOrderId(orderData.id);
+          setNegotiationStartTime(Date.now());
           setPaymentStep("negotiating");
         } else {
           alert("Gagal mengirim permintaan negosiasi: " + (orderData?.error || "Unknown error"));
@@ -378,6 +453,13 @@ export default function OrderPage() {
     let interval: NodeJS.Timeout;
     if (paymentStep === "negotiating" && negotiationOrderId) {
       interval = setInterval(async () => {
+        // Check 1-minute timeout
+        if (Date.now() - negotiationStartTime > 60000) {
+          setPaymentStep("rejected");
+          clearInterval(interval);
+          return;
+        }
+
         try {
           const res = await fetch(`/api/orders/${negotiationOrderId}`);
           const data = await res.json();
@@ -385,9 +467,7 @@ export default function OrderPage() {
             if (data.status === 'negotiation_accepted') {
               setPaymentStep("qris");
             } else if (data.status === 'negotiation_rejected') {
-              alert("Maaf, driver menolak pesanan Anda karena kuantitas per kategori terlalu besar. Silakan kurangi pesanan Anda atau pilih driver lain.");
-              setPaymentStep("cart");
-              setNegotiationOrderId(null);
+              setPaymentStep("rejected");
             }
           }
         } catch (e) {
@@ -396,7 +476,7 @@ export default function OrderPage() {
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [paymentStep, negotiationOrderId]);
+  }, [paymentStep, negotiationOrderId, negotiationStartTime]);
 
   if (!mounted || loadingData) return <div style={{paddingTop: '100px', textAlign: 'center', color: 'white'}}>Memuat...</div>;
 
@@ -507,6 +587,13 @@ export default function OrderPage() {
                           {"★".repeat(hist.rating)}{"☆".repeat(5 - hist.rating)}
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontWeight: 'bold', fontSize: '0.9rem' }}>Rp {hist.total?.toLocaleString('id-ID') || '0'}</p>
+                        <button 
+                          onClick={() => handlePesanLagi(hist)}
+                          className="btn btn-primary" 
+                          style={{ marginTop: '8px', padding: '4px 8px', fontSize: '0.8rem', background: 'var(--accent-primary)', color: 'black' }}
+                        >
+                          Pesan Lagi ➔
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -615,10 +702,43 @@ export default function OrderPage() {
                 ></textarea>
               </div>
 
+              <div className="form-group" style={{ marginBottom: '2rem' }}>
+                <label style={{ fontWeight: 'bold', color: 'white' }}>Jumlah</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                  <button className="btn btn-secondary" onClick={() => setCustomizeQuantity(q => Math.max(1, q - 1))} style={{ width: '40px', height: '40px', padding: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', width: '40px', textAlign: 'center', color: 'white' }}>{customizeQuantity}</span>
+                  <button className="btn btn-primary" onClick={() => {
+                    const nextQ = customizeQuantity + 1;
+                    setCustomizeQuantity(nextQ);
+                    
+                    const catCount = cart.filter(i => i.category === activeCustomizeMenu.category).reduce((acc, curr) => acc + curr.quantity, 0);
+                    if (catCount + nextQ >= 3) {
+                      setShowWarningModal(true);
+                    }
+                  }} style={{ width: '40px', height: '40px', padding: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                </div>
+              </div>
+
               <button className="btn btn-primary btn-block" onClick={confirmAddToCart}>
-                Tambahkan ke Keranjang - Rp {activeCustomizeMenu.price.toLocaleString('id-ID')}
+                Tambahkan ke Keranjang - Rp {(activeCustomizeMenu.price * customizeQuantity).toLocaleString('id-ID')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning > 2 Items Modal */}
+      {showWarningModal && (
+        <div className="modal-overlay" style={{ zIndex: 300 }}>
+          <div className="modal-content glass-card bounce-in" style={{ textAlign: 'center', background: 'rgba(255, 95, 86, 0.1)', border: '2px solid #ff5f56' }}>
+            <div style={{ fontSize: '5rem', animation: 'pulse 1s infinite' }}>⚠️</div>
+            <h2 style={{ color: '#ff5f56', marginBottom: '1rem', marginTop: '1rem', fontSize: '2rem' }}>PERINGATAN JUMLAH PESANAN</h2>
+            <p style={{ color: 'white', fontSize: '1.1rem', marginBottom: '2rem' }}>
+              Anda memesan lebih dari 2 item pada kategori ini. Driver kemungkinan akan memerlukan <strong>persetujuan khusus</strong> atau menolak pesanan jika terlalu banyak.
+            </p>
+            <button className="btn btn-primary btn-block" style={{ background: '#ff5f56', border: 'none' }} onClick={() => setShowWarningModal(false)}>
+              Saya Mengerti
+            </button>
           </div>
         </div>
       )}
@@ -691,7 +811,41 @@ export default function OrderPage() {
               </div>
 
               <form className="checkout-form" onSubmit={handleCheckout} style={{ marginTop: '1rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.5rem' }}>
-                <h4 style={{ marginBottom: '1rem', color: 'white' }}>Data Pengiriman (Tanpa Registrasi)</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ margin: 0, color: 'white' }}>Data Pengiriman (Tanpa Registrasi)</h4>
+                  {orderHistory.length > 0 && (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const lastOrder = orderHistory[0];
+                        if (lastOrder) {
+                          if (lastOrder.customer_name) setCustomerName(lastOrder.customer_name);
+                          if (lastOrder.customer_phone) setCustomerPhone(lastOrder.customer_phone);
+                          if (lastOrder.dropoff_address) {
+                            const parts = lastOrder.dropoff_address.split(" | LAT: ");
+                            if (parts.length > 1) {
+                              setCustomerAddress(parts[0]);
+                              const coords = parts[1].split(" | LNG: ");
+                              if (coords.length > 1) {
+                                const lat = parseFloat(coords[0]);
+                                const lng = parseFloat(coords[1]);
+                                setCustomerLat(lat);
+                                setCustomerLng(lng);
+                                setViewState({ ...viewState, latitude: lat, longitude: lng });
+                              }
+                            } else {
+                              setCustomerAddress(lastOrder.dropoff_address);
+                            }
+                          }
+                        }
+                      }}
+                      className="btn btn-secondary" 
+                      style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                    >
+                      🔄 Gunakan Data Sebelumnya
+                    </button>
+                  )}
+                </div>
 
                 <div className="menu-note glass-card" style={{ marginBottom: '1.5rem', padding: '1rem', borderLeft: '4px solid #ff5f56', background: 'rgba(255, 95, 86, 0.05)' }}>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
@@ -806,6 +960,31 @@ export default function OrderPage() {
                   `}} />
                   <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Menunggu Persetujuan Driver...</h3>
                   <p style={{ color: 'var(--text-secondary)' }}>Pesanan Anda mengandung terlalu banyak item dalam satu kategori. Kami sedang meminta kesediaan driver untuk membawanya.</p>
+                </div>
+              ) : paymentStep === "rejected" ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
+                  <h3 style={{ color: '#ff5f56', marginBottom: '1rem' }}>Driver Tidak Tersedia / Menolak</h3>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+                    Maaf, driver tidak dapat menerima pesanan dengan jumlah ini, atau waktu tunggu persetujuan (1 menit) telah habis. 
+                    Silakan kurangi jumlah pesanan Anda atau coba pilih driver lain yang mungkin bersedia.
+                  </p>
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <button className="btn btn-secondary" onClick={() => {
+                      setPaymentStep("cart");
+                      setNegotiationOrderId(null);
+                    }}>
+                      Kurangi Item
+                    </button>
+                    <button className="btn btn-primary" onClick={() => {
+                      setPaymentStep("cart");
+                      setIsCheckoutOpen(false);
+                      setSelectedDriver(null);
+                      setNegotiationOrderId(null);
+                    }}>
+                      Pilih Driver Lain
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>

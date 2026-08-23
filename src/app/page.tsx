@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
   const [currentNode, setCurrentNode] = useState(0);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function Home() {
         </div>
         <div className="nav-links">
           <a href="#features">Fitur</a>
+          <a href="https://wa.me/6285624251767" target="_blank" rel="noopener noreferrer">Bantuan (085624251767)</a>
           <a href="#how-it-works">Cara Kerja</a>
           <a href="#portals">Portal</a>
           <Link href="/order" className="btn btn-primary nav-btn">
@@ -187,13 +190,6 @@ export default function Home() {
             <p>Mulai terima pesanan, kelola pendapatan, dan tarik penghasilan harian Anda.</p>
             <div className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', borderColor: '#ffbd2e', color: '#ffbd2e' }}>Portal Driver</div>
           </Link>
-
-          <Link href="/founder" className="feature-card fade-in delay-3" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-            <div className="feature-icon" style={{ fontSize: '3rem', color: '#ff4b4b' }}>💼</div>
-            <h3>Founder / Admin</h3>
-            <p>Kelola menu, verifikasi pendaftaran driver baru, dan pantau statistik keuangan.</p>
-            <div className="btn btn-secondary" style={{ marginTop: '1rem', width: '100%', borderColor: '#ff4b4b', color: '#ff4b4b' }}>Dashboard Admin</div>
-          </Link>
         </div>
       </section>
 
@@ -212,7 +208,17 @@ export default function Home() {
           <div className="footer-logo">
             Jastip<span>Kilat</span>
           </div>
-          <p>&copy; 2026 JastipKilat. All rights reserved.</p>
+          <p 
+            onClick={(e) => {
+              if (e.ctrlKey || e.metaKey) {
+                router.push('/founder');
+              }
+            }}
+            style={{ cursor: 'text' }}
+            title="Copyright 2026"
+          >
+            &copy; 2026 JastipKilat. All rights reserved.
+          </p>
         </div>
       </footer>
     </>

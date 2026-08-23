@@ -10,9 +10,11 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(true);
   const [orderData, setOrderData] = useState<any>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [activeOrdersList, setActiveOrdersList] = useState<any[]>([]);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [showComplaintBtn, setShowComplaintBtn] = useState(false);
 
   // Map backend status to tracking node index
   const getNodeFromStatus = (status: string) => {
@@ -42,6 +44,21 @@ export default function TrackingPage() {
     }
   }, []);
 
+  const fetchActiveOrders = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/orders/history`); // Since history returns all, we can filter client side or backend
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const active = data.filter(o => ['pending', 'cooking', 'on_the_way'].includes(o.status));
+        setActiveOrdersList(active);
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  }, []);
+
   // Load order ID from localStorage and fetch
   useEffect(() => {
     const savedId = localStorage.getItem("jastip_active_order_id");
@@ -49,18 +66,33 @@ export default function TrackingPage() {
       setOrderId(savedId);
       fetchOrder(savedId);
     } else {
-      setLoading(false);
+      fetchActiveOrders();
     }
-  }, [fetchOrder]);
+  }, [fetchOrder, fetchActiveOrders]);
 
   // Poll order status every 5 seconds (so driver updates appear in real-time)
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId) {
+      const interval = setInterval(fetchActiveOrders, 5000);
+      return () => clearInterval(interval);
+    }
     const interval = setInterval(() => {
       fetchOrder(orderId);
     }, 5000);
     return () => clearInterval(interval);
-  }, [orderId, fetchOrder]);
+  }, [orderId, fetchOrder, fetchActiveOrders]);
+
+  useEffect(() => {
+    if (orderData && orderData.created_at) {
+      // 2 hours in ms = 2 * 60 * 60 * 1000 = 7200000
+      const orderTime = new Date(orderData.created_at).getTime();
+      if (Date.now() - orderTime > 7200000) {
+        setShowComplaintBtn(true);
+      } else {
+        setShowComplaintBtn(false);
+      }
+    }
+  }, [orderData]);
 
   const statuses = [
     { icon: "🛒", title: "Pesanan Diterima", desc: "Driver telah menerima pesanan Anda" },
@@ -127,12 +159,41 @@ export default function TrackingPage() {
             <Link href="/order" className="btn btn-secondary">Kembali ke Order</Link>
           </div>
         </nav>
-        <div style={{ paddingTop: '80px' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📭</div>
-          <h3>Tidak ada pesanan aktif</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Silakan buat pesanan terlebih dahulu.</p>
-          <Link href="/order" className="btn btn-primary">Pesan Sekarang</Link>
-        </div>
+        
+        {activeOrdersList.length > 0 ? (
+          <div style={{ paddingTop: '40px', maxWidth: '600px', margin: '0 auto', textAlign: 'left', padding: '0 20px' }}>
+            <h3 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Pilih Pesanan yang Sedang Diproses</h3>
+            {activeOrdersList.map(order => (
+              <div 
+                key={order.id} 
+                className="glass-card" 
+                style={{ padding: '1.5rem', marginBottom: '1rem', cursor: 'pointer', border: '1px solid var(--accent-primary)' }}
+                onClick={() => {
+                  setOrderId(order.id);
+                  setLoading(true);
+                  fetchOrder(order.id);
+                  localStorage.setItem("jastip_active_order_id", order.id);
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 8px 0', color: 'var(--accent-primary)' }}>Order: {order.id.slice(0,8)}</h4>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Driver: {order.driver_name || 'Menunggu'}</p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'white' }}>Rp {order.total_price.toLocaleString('id-ID')}</p>
+                  </div>
+                  <div style={{ fontSize: '1.5rem' }}>➔</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ paddingTop: '80px' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📭</div>
+            <h3>Tidak ada pesanan aktif</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Silakan buat pesanan terlebih dahulu.</p>
+            <Link href="/order" className="btn btn-primary">Pesan Sekarang</Link>
+          </div>
+        )}
       </div>
     );
   }
@@ -164,24 +225,32 @@ export default function TrackingPage() {
 
         <div className="order-container glass-card" style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-          {/* Simulated Map Area */}
-          <div style={{
-            width: '100%',
-            height: '250px',
-            background: 'rgba(255,255,255,0.02)',
-            borderRadius: '16px',
-            border: '1px solid var(--glass-border)',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden'
-          }}>
-            <div style={{ position: 'absolute', opacity: 0.1, fontSize: '150px' }}>🗺️</div>
-            <div className="bounce-in" style={{ zIndex: 10, background: 'rgba(0,0,0,0.8)', padding: '10px 20px', borderRadius: '50px', border: '1px solid var(--accent-primary)' }}>
-              <span style={{ fontSize: '1.2rem' }}>{statuses[currentNode].icon} {statuses[currentNode].title}</span>
+          {/* Simulated Map Area (Only visible after cooking) */}
+          {currentNode >= 2 ? (
+            <div style={{
+              width: '100%',
+              height: '250px',
+              background: 'rgba(255,255,255,0.02)',
+              borderRadius: '16px',
+              border: '1px solid var(--glass-border)',
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', opacity: 0.1, fontSize: '150px' }}>🗺️</div>
+              <div className="bounce-in" style={{ zIndex: 10, background: 'rgba(0,0,0,0.8)', padding: '10px 20px', borderRadius: '50px', border: '1px solid var(--accent-primary)' }}>
+                <span style={{ fontSize: '1.2rem' }}>{statuses[currentNode].icon} {statuses[currentNode].title}</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'pulse 2s infinite' }}>{statuses[currentNode].icon}</div>
+              <h4 style={{ color: 'white' }}>Driver Sedang Memproses Pesanan</h4>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Map Live Tracking akan muncul setelah driver mulai mengantar.</p>
+            </div>
+          )}
 
           {/* Order Items Summary */}
           {orderItems.length > 0 && (
@@ -242,7 +311,7 @@ export default function TrackingPage() {
           </div>
 
           {/* Laporkan Kendala Button */}
-          {currentNode < 3 && orderData?.driver_id && (
+          {currentNode < 3 && orderData?.driver_id && showComplaintBtn && (
             <div style={{ textAlign: 'center' }}>
               <button
                 className="btn btn-secondary"
@@ -251,6 +320,7 @@ export default function TrackingPage() {
                   const reason = prompt("Silakan masukkan keluhan/kendala Anda (misal: Driver tidak bisa dihubungi lebih dari 2 jam):");
                   if (reason) {
                     try {
+                      // Send notification/update driver log logic
                       const res = await fetch(`/api/drivers?id=${orderData.driver_id}`);
                       const driver = await res.json();
                       if (driver && driver.id) {
@@ -271,7 +341,7 @@ export default function TrackingPage() {
                   }
                 }}
               >
-                ⚠️ Laporkan Kendala
+                ⚠️ Laporkan Kendala (Terlalu Lama)
               </button>
             </div>
           )}

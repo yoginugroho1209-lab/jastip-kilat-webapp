@@ -541,7 +541,8 @@ export default function DriverDashboard() {
         <div className="section-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h2>Dashboard Operasional</h2>
-            <p>Halo {driver.name}, kelola pesanan dan rute pengantaran Anda di sini.</p>
+            <p style={{ marginBottom: '0.5rem' }}>Halo {driver.name}, kelola pesanan dan rute pengantaran Anda di sini.</p>
+            <p style={{ fontSize: '0.9rem' }}>📍 Lokasi Pick-up: <a href="https://maps.app.goo.gl/LLve5k7EgyDncNob6" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'underline' }}>{driver.restoName || 'Mie Gacoan Setiabudi'}</a></p>
             {!loadingOrders && (
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
                 🔄 Auto-refresh setiap 10 detik • {activeOrders.length} pesanan aktif
