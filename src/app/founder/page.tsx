@@ -387,6 +387,37 @@ export default function FounderDashboard() {
               {drivers.filter(d => d.status === "pending").length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Tidak ada pendaftar baru.</p>}
             </div>
 
+            <h4 style={{ color: '#ef4444', marginBottom: '1rem', marginTop: '3rem' }}>Driver Dibekukan (Terkendala)</h4>
+            <div style={{ display: 'grid', gap: '1rem', marginBottom: '3rem' }}>
+              {drivers.filter(d => d.status === "frozen").map(d => {
+                const vehicleStr = d.vehicle || '';
+                const hasNotes = vehicleStr.includes('| NOTES:');
+                const cleanVehicle = hasNotes ? vehicleStr.split('| NOTES:')[0].trim() : vehicleStr;
+                const notes = hasNotes ? vehicleStr.split('| NOTES:')[1].trim() : 'Tidak ada alasan';
+
+                return (
+                  <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1.5rem', borderRadius: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 4px 0', color: 'white' }}>{d.name}</h3>
+                      <p style={{ margin: '0 0 4px 0', color: 'var(--text-secondary)' }}>WA: {d.phone}</p>
+                      <p style={{ margin: '0 0 4px 0', color: 'var(--text-secondary)' }}>Kendaraan: {cleanVehicle}</p>
+                      <p style={{ margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Alasan Kendala: {notes}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                      <button 
+                        onClick={() => approveDriver(d.id)} 
+                        className="btn btn-primary" 
+                        style={{ background: '#4ade80', color: 'black', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center', border: 'none', cursor: 'pointer' }}
+                      >
+                        🔓 Buka Blokir
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {drivers.filter(d => d.status === "frozen").length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Tidak ada akun yang dibekukan.</p>}
+            </div>
+
             <h4 style={{ color: '#38bdf8', marginBottom: '1rem' }}>Live Monitor Driver Aktif</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               {drivers.filter(d => d.status === "active").map(d => (

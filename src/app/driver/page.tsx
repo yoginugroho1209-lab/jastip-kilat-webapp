@@ -202,6 +202,7 @@ export default function DriverDashboard() {
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
+  const negotiationOrders = orders.filter(o => o.status === "negotiation_pending");
   const pendingOrders = orders.filter(o => o.status === "pending");
   const activeOrders = orders.filter(o => ["accepted", "cooking", "on_the_way"].includes(o.status));
 
@@ -426,47 +427,75 @@ export default function DriverDashboard() {
           Jastip<span>Driver</span>
         </div>
         <div className="nav-links" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* Toggle Ready / Istirahat */}
-          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.8rem', color: isResting ? 'var(--text-secondary)' : '#4ade80', fontWeight: isResting ? 'normal' : 'bold' }}>Ready</span>
-            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px', margin: 0 }}>
-              <input 
-                type="checkbox" 
-                checked={isResting}
-                onChange={async (e) => {
-                  const resting = e.target.checked;
-                  setIsResting(resting);
-                  if (driver) {
-                    const updatedDriver = { ...driver, current_task: resting ? 'Istirahat' : 'Ready' };
-                    setDriver(updatedDriver);
-                    localStorage.setItem("jastip_driver_session", JSON.stringify(updatedDriver));
-                  }
+          {activeOrders.length > 0 ? (
+            <button 
+              className="btn btn-secondary" 
+              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
+              onClick={async () => {
+                const reason = prompt("Masukkan alasan kendala mendesak. PERINGATAN: Akun Anda akan dibekukan 30 hari. Anda harus menghubungi admin (Founder) untuk membuka kembali.");
+                if (reason) {
                   try {
                     await fetch('/api/drivers', {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         id: driver.id,
-                        current_task: resting ? 'Istirahat' : 'Ready'
+                        status: 'frozen',
+                        vehicle: (driver.vehicle || '') + ` | NOTES: ${reason}`
                       })
                     });
-                  } catch (err) {}
-                }}
-                style={{ opacity: 0, width: 0, height: 0 }} 
-              />
-              <span className="slider round" style={{ 
-                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                backgroundColor: isResting ? '#ffbd2e' : '#4ade80', 
-                transition: '.4s', borderRadius: '24px' 
-              }}>
-                <span style={{
-                  position: 'absolute', content: '""', height: '12px', width: '12px', left: isResting ? '20px' : '3px', bottom: '3px',
-                  backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
-                }}></span>
-              </span>
-            </label>
-            <span style={{ fontSize: '0.8rem', color: isResting ? '#ffbd2e' : 'var(--text-secondary)', fontWeight: isResting ? 'bold' : 'normal' }}>Istirahat</span>
-          </div>
+                    alert("Akun berhasil dibekukan.");
+                    handleLogout();
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }
+              }}
+            >
+              🆘 Kendala Mendesak
+            </button>
+          ) : (
+            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: isResting ? 'var(--text-secondary)' : '#4ade80', fontWeight: isResting ? 'normal' : 'bold' }}>Ready</span>
+              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={isResting}
+                  onChange={async (e) => {
+                    const resting = e.target.checked;
+                    setIsResting(resting);
+                    if (driver) {
+                      const updatedDriver = { ...driver, current_task: resting ? 'Istirahat' : 'Ready' };
+                      setDriver(updatedDriver);
+                      localStorage.setItem("jastip_driver_session", JSON.stringify(updatedDriver));
+                    }
+                    try {
+                      await fetch('/api/drivers', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          id: driver.id,
+                          current_task: resting ? 'Istirahat' : 'Ready'
+                        })
+                      });
+                    } catch (err) {}
+                  }}
+                  style={{ opacity: 0, width: 0, height: 0 }} 
+                />
+                <span className="slider round" style={{ 
+                  position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                  backgroundColor: isResting ? '#ffbd2e' : '#4ade80', 
+                  transition: '.4s', borderRadius: '24px' 
+                }}>
+                  <span style={{
+                    position: 'absolute', content: '""', height: '12px', width: '12px', left: isResting ? '20px' : '3px', bottom: '3px',
+                    backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
+                  }}></span>
+                </span>
+              </label>
+              <span style={{ fontSize: '0.8rem', color: isResting ? '#ffbd2e' : 'var(--text-secondary)', fontWeight: isResting ? 'bold' : 'normal' }}>Istirahat</span>
+            </div>
+          )}
 
           <button onClick={() => setShowSubModal(true)} className="btn btn-primary" style={{ border: 'none', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>Langganan Saya</button>
           <button onClick={handleLogout} className="btn btn-secondary" style={{ border: 'none' }}>Logout</button>
@@ -522,6 +551,54 @@ export default function DriverDashboard() {
                   Perpanjang / Pilih Paket Lain
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Negotiation Orders Verification */}
+        {negotiationOrders.length > 0 && !isResting && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>⚠️ Permintaan Order Besar (>2 Item)</h3>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              {negotiationOrders.map((order: any) => (
+                <div key={order.id} style={{ background: 'rgba(250, 204, 21, 0.1)', border: '1px solid #facc15', padding: '1rem', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h4 style={{ color: 'white', margin: '0 0 4px 0' }}>{order.customerName}</h4>
+                      <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>📍 {order.address}</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>💰 Ongkir: Rp {(order.deliveryFee || 0).toLocaleString('id-ID')}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: '8px 16px', border: '1px solid #ef4444', color: '#ef4444', background: 'transparent' }}
+                        onClick={async () => {
+                          if (confirm("Tolak pesanan ini?")) {
+                            await fetch(`/api/orders/${order.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'negotiation_rejected' }) });
+                            fetchOrders();
+                          }
+                        }}
+                      >❌ Tolak</button>
+                      <button 
+                        className="btn btn-primary" 
+                        style={{ padding: '8px 16px', background: '#4ade80', color: 'black' }}
+                        onClick={async () => {
+                          await fetch(`/api/orders/${order.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'negotiation_accepted' }) });
+                          fetchOrders();
+                        }}
+                      >✅ Sanggup</button>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '0.8rem', color: '#facc15' }}>Pesanan ini membutuhkan persetujuan karena porsinya besar.</p>
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      {order.items.map((item: any) => (
+                        <li key={item.id}>{item.qty}x {item.name} {item.options ? `(${item.options})` : ''}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

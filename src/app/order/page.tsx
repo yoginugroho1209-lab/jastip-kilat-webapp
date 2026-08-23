@@ -163,7 +163,8 @@ export default function OrderPage() {
   // Cart States
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<"cart" | "qris">("cart");
+  const [paymentStep, setPaymentStep] = useState<"cart" | "qris" | "negotiating">("cart");
+  const [negotiationOrderId, setNegotiationOrderId] = useState<string | null>(null);
 
   // Customize Modal States
   const [activeCustomizeMenu, setActiveCustomizeMenu] = useState<Menu | null>(null);
@@ -248,54 +249,151 @@ export default function OrderPage() {
   const platformFee = 500 * totalItems;
   const totalPrice = totalMenuPrice + deliveryFee + platformFee;
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPaymentStep("qris");
+    if (!selectedDriver) return alert("Silakan pilih driver terlebih dahulu.");
+
+    // Check categories quantity limit
+    const catCount: Record<string, number> = {};
+    cart.forEach(item => {
+      const cat = item.category || 'Lainnya';
+      catCount[cat] = (catCount[cat] || 0) + item.quantity;
+    });
+
+    const hasLargeCategory = Object.values(catCount).some(count => count > 2);
+
+    if (hasLargeCategory) {
+      if (!confirm("Item per kategori terlalu banyak (> 2 item). Hal ini kemungkinan akan ditolak oleh driver. Lanjutkan mengirim permintaan persetujuan ke driver?")) {
+        return; // User cancelled
+      }
+      
+      const orderPayload = {
+        customer_name: customerName || "Customer Guest",
+        customer_phone: customerPhone || "08000000000",
+        dropoff_address: `${customerAddress || "Tembalang"} | LAT: ${customerLat} | LNG: ${customerLng}`,
+        delivery_fee: deliveryFee,
+        total_menu_price: totalMenuPrice,
+        driver_name: selectedDriver.name,
+        sequence: 1,
+        status: 'negotiation_pending', // Special status to trigger driver pre-approval
+        items: cart.map(c => ({
+          menu_id: c.id,
+          quantity: c.quantity,
+          notes: `${Object.values(c.selectedOptions).join(', ')}${c.note ? ' - ' + c.note : ''}`
+        }))
+      };
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        });
+        const orderData = await res.json();
+        if (orderData && orderData.id) {
+          setNegotiationOrderId(orderData.id);
+          setPaymentStep("negotiating");
+        } else {
+          alert("Gagal mengirim permintaan negosiasi: " + (orderData?.error || "Unknown error"));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Terjadi kesalahan jaringan.");
+      }
+    } else {
+      setPaymentStep("qris");
+    }
   };
 
   const simulatePaymentSuccess = async () => {
-    // Send POST to /api/orders with full data
-    const orderPayload = {
-      customer_name: customerName || "Customer Guest",
-      customer_phone: customerPhone || "08000000000",
-      dropoff_address: `${customerAddress || "Tembalang"} | LAT: ${customerLat} | LNG: ${customerLng}`,
-      delivery_fee: deliveryFee,
-      total_menu_price: totalMenuPrice,
-      driver_name: selectedDriver?.name || null,
-      sequence: 1,
-      items: cart.map(c => ({
-        menu_id: c.id,
-        quantity: c.quantity,
-        notes: `${Object.values(c.selectedOptions).join(', ')}${c.note ? ' - ' + c.note : ''}`
-      }))
-    };
-
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload)
-      });
-      const orderData = await res.json();
+      let orderId = "";
 
-      if (orderData && orderData.id) {
-        // Save order ID so tracking page can fetch it
-        localStorage.setItem("jastip_active_order_id", orderData.id);
+      if (negotiationOrderId) {
+        // If order already exists (from negotiation), just patch it to 'pending'
+        const res = await fetch(`/api/orders/${negotiationOrderId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'pending' })
+        });
+        const orderData = await res.json();
+        if (orderData && !orderData.error) {
+          orderId = negotiationOrderId;
+        } else {
+          alert("Gagal melanjutkan pesanan: " + (orderData?.error || "Unknown error"));
+          return;
+        }
+      } else {
+        // Normal flow (no negotiation), create new order as 'pending'
+        const orderPayload = {
+          customer_name: customerName || "Customer Guest",
+          customer_phone: customerPhone || "08000000000",
+          dropoff_address: `${customerAddress || "Tembalang"} | LAT: ${customerLat} | LNG: ${customerLng}`,
+          delivery_fee: deliveryFee,
+          total_menu_price: totalMenuPrice,
+          driver_name: selectedDriver?.name || null,
+          sequence: 1,
+          items: cart.map(c => ({
+            menu_id: c.id,
+            quantity: c.quantity,
+            notes: `${Object.values(c.selectedOptions).join(', ')}${c.note ? ' - ' + c.note : ''}`
+          }))
+        };
+
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        });
+        const orderData = await res.json();
+        if (orderData && orderData.id) {
+          orderId = orderData.id;
+        } else {
+          alert("Gagal membuat pesanan: " + (orderData?.error || "Unknown error"));
+          return;
+        }
+      }
+
+      if (orderId) {
+        localStorage.setItem("jastip_active_order_id", orderId);
         localStorage.setItem("jastip_last_total", totalPrice.toString());
         
         setCart([]);
         setIsCheckoutOpen(false);
         setSelectedDriver(null);
         setPaymentStep("cart");
+        setNegotiationOrderId(null);
         router.push("/tracking");
-      } else {
-        alert("Gagal membuat pesanan: " + (orderData?.error || "Unknown error"));
       }
     } catch (e) {
       console.error("Order creation failed", e);
-      alert("Terjadi kesalahan jaringan saat membuat pesanan.");
+      alert("Terjadi kesalahan jaringan saat memproses pesanan.");
     }
   };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (paymentStep === "negotiating" && negotiationOrderId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/orders/${negotiationOrderId}`);
+          const data = await res.json();
+          if (data && data.status) {
+            if (data.status === 'negotiation_accepted') {
+              setPaymentStep("qris");
+            } else if (data.status === 'negotiation_rejected') {
+              alert("Maaf, driver menolak pesanan Anda karena kuantitas per kategori terlalu besar. Silakan kurangi pesanan Anda atau pilih driver lain.");
+              setPaymentStep("cart");
+              setNegotiationOrderId(null);
+            }
+          }
+        } catch (e) {
+          console.error("Failed polling negotiation", e);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [paymentStep, negotiationOrderId]);
 
   if (!mounted || loadingData) return <div style={{paddingTop: '100px', textAlign: 'center', color: 'white'}}>Memuat...</div>;
 
@@ -693,6 +791,19 @@ export default function OrderPage() {
                 <button type="submit" className="btn btn-primary btn-block">Bayar via QRIS Sekarang</button>
               </form>
               </>
+              ) : paymentStep === "negotiating" ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+                  <div className="spinner" style={{ 
+                    width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.1)', 
+                    borderTopColor: '#facc15', borderRadius: '50%', animation: 'spin 1s linear infinite', 
+                    margin: '0 auto 1.5rem auto' 
+                  }}></div>
+                  <style dangerouslySetInnerHTML={{__html: `
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                  `}} />
+                  <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Menunggu Persetujuan Driver...</h3>
+                  <p style={{ color: 'var(--text-secondary)' }}>Pesanan Anda mengandung terlalu banyak item dalam satu kategori. Kami sedang meminta kesediaan driver untuk membawanya.</p>
+                </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
                   <div style={{ background: 'white', padding: '1rem', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem' }}>
