@@ -166,7 +166,7 @@ export default function DriverDashboard() {
       console.error("Failed fetching orders:", err);
       setLoadingOrders(false);
     }
-  }, []);
+  }, [driver, router]);
 
   // Initial fetch
   useEffect(() => {
