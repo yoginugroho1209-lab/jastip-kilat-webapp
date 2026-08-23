@@ -33,15 +33,19 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, status } = body;
+  const { id, status, current_task } = body;
 
   if (!id) {
     return NextResponse.json({ error: 'Driver ID is required' }, { status: 400 });
   }
 
+  const updateData: any = {};
+  if (status !== undefined) updateData.status = status;
+  if (current_task !== undefined) updateData.current_task = current_task;
+
   const { data, error } = await supabase
     .from('drivers')
-    .update({ status })
+    .update(updateData)
     .eq('id', id)
     .select()
     .single();

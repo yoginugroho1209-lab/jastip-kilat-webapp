@@ -406,7 +406,7 @@ export default function FounderDashboard() {
                   </div>
                   <p style={{ margin: '0 0 4px 0', color: 'var(--text-secondary)' }}>Motor: {d.vehicle}</p>
                   <p style={{ margin: '0 0 8px 0', color: 'var(--text-secondary)' }}>WA: {d.phone} | PIN: {d.pin || '-'}</p>
-                  <p style={{ margin: 0, color: '#ffbd2e', fontWeight: 'bold' }}>📍 {d.current_task || 'Standby'}</p>
+                  <p style={{ margin: 0, color: '#ffbd2e', fontWeight: 'bold' }}>📍 {d.current_task === '-' ? 'Ready' : (d.current_task || 'Ready')}</p>
                 </div>
               ))}
             </div>
