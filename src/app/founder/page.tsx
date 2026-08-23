@@ -12,8 +12,8 @@ export default function FounderDashboard() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
 
-  const [authStep, setAuthStep] = useState(1);
-  const [emailStatus, setEmailStatus] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // States
   const [menus, setMenus] = useState<any[]>([]);
@@ -65,51 +65,29 @@ export default function FounderDashboard() {
     return () => clearInterval(interval);
   }, [fetchAllData, isAuthenticated]);
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmailStatus("Sedang mengirim kode OTP...");
     setPinError(false);
+    setIsSubmitting(true);
     
-    const founderEmail = "yoginugroho1209@gmail.com";
-    
-    const { error } = await supabase.auth.signInWithOtp({
-      email: founderEmail,
-      options: {
-        shouldCreateUser: true,
+    try {
+      const res = await fetch('/api/founder/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneInput, pin: pinInput })
+      });
+      
+      if (res.ok) {
+        setIsAuthenticated(true);
+        localStorage.setItem("jastip_founder_auth", "true");
+        fetchAllData();
+      } else {
+        setPinError(true);
       }
-    });
-    
-    if (error) {
+    } catch (err) {
       setPinError(true);
-      setEmailStatus("Gagal mengirim kode: " + error.message);
-    } else {
-      setAuthStep(2);
-      setEmailStatus("Kode 6-digit telah dikirim ke " + founderEmail);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPinError(false);
-    setEmailStatus("Memverifikasi...");
-    
-    const founderEmail = "yoginugroho1209@gmail.com";
-    
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: founderEmail,
-      token: pinInput,
-      type: 'email'
-    });
-    
-    if (error) {
-      setPinError(true);
-      setEmailStatus("Kode salah atau kadaluarsa.");
-    } else if (data.session) {
-      setIsAuthenticated(true);
-      setAuthStep(1);
-      setPinInput("");
-      localStorage.setItem("jastip_founder_auth", "true");
-      fetchAllData();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -182,44 +160,40 @@ export default function FounderDashboard() {
         <div className="glass-card fade-in" style={{ maxWidth: '400px', width: '100%', textAlign: 'center', padding: '2rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💼</div>
           <h2 style={{ color: 'white', marginBottom: '0.5rem' }}>Founder Dashboard</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Keamanan Ekstra via Email OTP.</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Verifikasi ketat untuk Admin Utama.</p>
           
-          {authStep === 1 ? (
-            <form onSubmit={handleRequestOtp}>
-              <p style={{ color: 'white', marginBottom: '1rem' }}>Login sebagai <strong>yoginugroho1209@gmail.com</strong></p>
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                Kirim Kode OTP ke Email
-              </button>
-              {emailStatus && <p style={{ color: pinError ? 'var(--accent-primary)' : '#4ade80', fontSize: '0.9rem', marginTop: '1rem' }}>{emailStatus}</p>}
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOtp}>
-              <p style={{ color: '#4ade80', marginBottom: '1rem', fontSize: '0.9rem' }}>{emailStatus}</p>
-              <input 
-                type="text" 
-                placeholder="Masukkan 6-Digit OTP" 
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
-                style={{ 
-                  width: '100%', padding: '12px', borderRadius: '8px', 
-                  border: `1px solid ${pinError ? 'var(--accent-primary)' : 'var(--glass-border)'}`, 
-                  background: 'rgba(255,255,255,0.05)', color: 'white', 
-                  marginBottom: '1rem', textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem' 
-                }}
-                autoFocus
-                maxLength={6}
-              />
-              {pinError && <p style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>Kode Salah / Kadaluarsa!</p>}
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Masuk</button>
-              <button 
-                type="button" 
-                onClick={() => { setAuthStep(1); setEmailStatus(""); setPinError(false); setPinInput(""); }} 
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', marginTop: '1rem', cursor: 'pointer', textDecoration: 'underline' }}
-              >
-                Kirim ulang kode
-              </button>
-            </form>
-          )}
+          <form onSubmit={handleLogin}>
+            <input 
+              type="text" 
+              placeholder="Nomor WhatsApp Admin" 
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              style={{ 
+                width: '100%', padding: '12px', borderRadius: '8px', 
+                border: `1px solid ${pinError ? 'var(--accent-primary)' : 'var(--glass-border)'}`, 
+                background: 'rgba(255,255,255,0.05)', color: 'white', 
+                marginBottom: '1rem'
+              }}
+              autoFocus
+            />
+            <input 
+              type="password" 
+              placeholder="Masukkan 6-Digit PIN" 
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value)}
+              style={{ 
+                width: '100%', padding: '12px', borderRadius: '8px', 
+                border: `1px solid ${pinError ? 'var(--accent-primary)' : 'var(--glass-border)'}`, 
+                background: 'rgba(255,255,255,0.05)', color: 'white', 
+                marginBottom: '1rem', textAlign: 'center', letterSpacing: '4px', fontSize: '1.2rem' 
+              }}
+              maxLength={6}
+            />
+            {pinError && <p style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>Nomor WA atau PIN Salah!</p>}
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmitting}>
+              {isSubmitting ? 'Memeriksa...' : 'Masuk'}
+            </button>
+          </form>
           
           <Link href="/" style={{ display: 'block', marginTop: '1.5rem', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.9rem' }}>
             ← Kembali ke Beranda
