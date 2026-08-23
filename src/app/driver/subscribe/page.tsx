@@ -139,7 +139,7 @@ export default function DriverSubscribe() {
               </div>
               <h4 style={{ color: 'white', marginBottom: '0.5rem' }}>Scan untuk Membayar</h4>
               <p style={{ color: 'var(--accent-primary)', fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>
-                Rp {packages.find(p => p.id === selectedPackage)?.price.toLocaleString('id-ID')}
+                Rp {(packages.find(p => p.id === selectedPackage)?.price || 0).toLocaleString('id-ID')}
               </p>
               
               <button 
