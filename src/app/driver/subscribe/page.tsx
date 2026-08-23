@@ -23,8 +23,8 @@ export default function DriverSubscribe() {
   }, [router]);
 
   const packages = [
-    { id: 'harian', name: 'Paket Harian (Promo)', price: 0, desc: 'Akses narik gratis selama 1 hari (Promo launching)', color: '#38bdf8' },
-    { id: 'permanen', name: 'Jalur VIP (Permanen)', price: 500000, desc: 'Akses seumur hidup, tanpa perpanjang.', color: '#a855f7' }
+    { id: 'harian', name: 'Paket Harian (Promo)', price: 0, desc: 'Akses narik gratis selama 1 hari (Promo terbatas)', color: '#38bdf8' },
+    { id: 'premium', name: 'Premium (Coming Soon)', price: null, desc: 'Fitur ekstra, rute VIP, dan tanpa batas waktu.', color: '#a855f7' }
   ];
 
   const handleSimulatePayment = async (packageIdToProcess?: string) => {
@@ -88,6 +88,10 @@ export default function DriverSubscribe() {
             key={pkg.id} 
             className="glass-card fade-in visible"
             onClick={() => {
+              if (pkg.price === null) {
+                // Premium is coming soon, do nothing
+                return;
+              }
               setSelectedPackage(pkg.id);
               if (pkg.price === 0) {
                 // Instan aktif tanpa QRIS jika gratis
@@ -99,14 +103,17 @@ export default function DriverSubscribe() {
             style={{ 
               width: '300px', 
               padding: '2rem', 
-              cursor: 'pointer',
+              cursor: pkg.price === null ? 'not-allowed' : 'pointer',
               border: selectedPackage === pkg.id ? `2px solid ${pkg.color}` : '1px solid var(--glass-border)',
               transform: selectedPackage === pkg.id ? 'scale(1.05)' : 'scale(1)',
-              transition: 'all 0.3s'
+              transition: 'all 0.3s',
+              opacity: pkg.price === null ? 0.6 : 1
             }}
           >
             <h3 style={{ color: pkg.color, marginBottom: '0.5rem' }}>{pkg.name}</h3>
-            <h1 style={{ color: 'white', margin: '0 0 1rem 0' }}>{pkg.price === 0 ? 'GRATIS' : `Rp ${pkg.price.toLocaleString('id-ID')}`}</h1>
+            <h1 style={{ color: 'white', margin: '0 0 1rem 0' }}>
+              {pkg.price === null ? 'SEGERA HADIR' : (pkg.price === 0 ? 'GRATIS' : `Rp ${pkg.price.toLocaleString('id-ID')}`)}
+            </h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem', minHeight: '40px' }}>
               {pkg.desc}
             </p>

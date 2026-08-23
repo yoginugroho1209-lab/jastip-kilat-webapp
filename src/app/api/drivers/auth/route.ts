@@ -31,6 +31,9 @@ export async function POST(request: Request) {
       }
 
       // Check Status
+      if (driver.status === 'pending') {
+        return NextResponse.json({ error: 'Akun Anda sedang direview oleh Admin. Silakan tunggu email persetujuan.' }, { status: 403 });
+      }
       if (driver.status === 'rejected') {
         return NextResponse.json({ error: 'Pendaftaran Anda ditolak oleh Admin. Silakan hubungi Admin.' }, { status: 403 });
       }

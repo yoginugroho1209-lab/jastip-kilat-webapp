@@ -54,14 +54,14 @@ export default function DriverDashboard() {
       const expiry = new Date(session.expires_at).getTime();
       if (Date.now() > expiry) {
         // Expired
-        session.status = "pending";
+        session.status = "accepted";
         localStorage.setItem("jastip_driver_session", JSON.stringify(session));
         router.push("/driver/subscribe");
         return;
       }
     }
 
-    if (session.status === "pending") {
+    if (session.status === "accepted") {
       router.push("/driver/subscribe");
       return;
     }

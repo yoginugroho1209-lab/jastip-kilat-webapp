@@ -56,12 +56,12 @@ export default function FounderDashboard() {
     }
   }, [fetchAllData]);
 
-  // Auto-refresh every 30 seconds
+  // Initial data load & Auto Refresh
   useEffect(() => {
     if (!isAuthenticated) return;
     const interval = setInterval(() => {
       fetchAllData();
-    }, 30000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [fetchAllData, isAuthenticated]);
 
@@ -113,11 +113,11 @@ export default function FounderDashboard() {
   };
 
   const approveDriver = async (id: string) => {
-    setDrivers(prev => prev.map(d => d.id === id ? { ...d, status: "active" } : d));
+    setDrivers(prev => prev.map(d => d.id === id ? { ...d, status: "accepted" } : d));
     await fetch('/api/drivers', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status: 'active' })
+      body: JSON.stringify({ id, status: 'accepted' })
     });
   };
 
@@ -366,20 +366,19 @@ export default function FounderDashboard() {
                         >
                           💬 Chat WA
                         </a>
-                        {email && (
-                          <a 
-                            href={`mailto:${email}?subject=Pendaftaran%20Mitra%20JastipKilat%20Diterima!&body=Halo%20${d.name},%0A%0ASelamat!%20Berkas%20pendaftaran%20mitra%20Anda%20telah%20memenuhi%20persyaratan%20dan%20kami%20terima.%0A%0ABerikut%20adalah%20akses%20login%20akun%20Anda:%0A-%20ID%20Driver:%20${d.id}%0A-%20Nama:%20${d.name}%0A-%20No%20WhatsApp:%20${d.phone}%0A-%20PIN:%20${d.pin || '1234'}%0A%0ASilakan%20login%20di%20Aplikasi%20JastipKilat.%0A%0ATerima%20kasih,%0AAdmin%20JastipKilat`} 
-                            target="_blank" rel="noreferrer" 
-                            className="btn btn-secondary" 
-                            style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', border: '1px solid #38bdf8', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}
-                          >
-                            📧 Kirim Email (PIN)
-                          </a>
-                        )}
+                        <button 
+                          onClick={() => {
+                            approveDriver(d.id);
+                            if (email) window.open(`mailto:${email}?subject=Pendaftaran%20Mitra%20JastipKilat%20Diterima!&body=Halo%20${d.name},%0A%0ASelamat!%20Berkas%20pendaftaran%20mitra%20Anda%20telah%20memenuhi%20persyaratan%20dan%20kami%20terima.%0A%0ABerikut%20adalah%20akses%20login%20akun%20Anda:%0A-%20ID%20Driver:%20${d.id}%0A-%20Nama:%20${d.name}%0A-%20No%20WhatsApp:%20${d.phone}%0A-%20PIN:%20${d.pin || '1234'}%0A%0ASilakan%20login%20di%20Aplikasi%20JastipKilat.%0A%0ATerima%20kasih,%0AAdmin%20JastipKilat`, '_blank');
+                          }} 
+                          className="btn btn-primary" 
+                          style={{ background: '#4ade80', color: 'black', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center', border: 'none', cursor: 'pointer' }}
+                        >
+                          ✔️ Terima & Kirim Email
+                        </button>
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => rejectDriver(d.id)} className="btn btn-primary" style={{ background: 'rgba(255, 95, 86, 0.1)', color: '#ff5f56', border: '1px solid #ff5f56', flex: 1, padding: '8px' }}>❌ Tolak</button>
-                        <button onClick={() => approveDriver(d.id)} className="btn btn-primary" style={{ background: '#4ade80', color: 'black', flex: 2, padding: '8px' }}>✔️ Terima & Aktifkan</button>
                       </div>
                     </div>
                   </div>

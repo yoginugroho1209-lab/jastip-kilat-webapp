@@ -61,7 +61,7 @@ export default function DriverLogin() {
       localStorage.setItem("jastip_driver_session", JSON.stringify(data.driver));
 
       // Redirect based on status
-      if (data.driver.status === "pending") {
+      if (data.driver.status === "accepted") {
         router.push("/driver/subscribe");
       } else {
         router.push("/driver");
