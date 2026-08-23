@@ -18,6 +18,7 @@ export default function DriverDashboard() {
   const [timeLeftStr, setTimeLeftStr] = useState<string>("");
   const [showSubModal, setShowSubModal] = useState(false);
   const [isResting, setIsResting] = useState(false);
+  const [isFrozen, setIsFrozen] = useState(false);
 
   useEffect(() => {
     if (!driver || !driver.expires_at) return;
@@ -63,6 +64,13 @@ export default function DriverDashboard() {
 
     if (session.status === "accepted") {
       router.push("/driver/subscribe");
+      return;
+    }
+
+    // Check if frozen
+    if (session.status === "frozen") {
+      setIsFrozen(true);
+      setDriver(session);
       return;
     }
     
@@ -117,6 +125,14 @@ export default function DriverDashboard() {
       // Verify driver status first to ensure they aren't terminated/rejected
       const statusRes = await fetch(`/api/drivers?id=${driver.id}`);
       const statusData = await statusRes.json();
+      if (statusData && statusData.status === 'frozen') {
+        // Driver has been frozen by admin
+        const session = JSON.parse(localStorage.getItem("jastip_driver_session") || '{}');
+        session.status = 'frozen';
+        localStorage.setItem("jastip_driver_session", JSON.stringify(session));
+        setIsFrozen(true);
+        return;
+      }
       if (statusData && (statusData.status === 'terminated' || statusData.status === 'rejected')) {
         // Kick out with notification
         window.alert('Akun Anda telah dinonaktifkan (Diputus Mitra) oleh Admin. Anda akan segera dikeluarkan.');
@@ -379,6 +395,17 @@ export default function DriverDashboard() {
 
     // Update order status to failed via API
     try {
+      if (reportReason === "vehicle_issue") {
+        await fetch('/api/drivers', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: driver.id,
+            vehicle: (driver.vehicle || '') + ` | SOS: ${reportDescription}`
+          })
+        });
+      }
+
       await fetch(`/api/orders/${selectedOrderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -409,6 +436,43 @@ export default function DriverDashboard() {
 
   if (!driver) return null; // Wait for auth guard
 
+  // Frozen blocking screen
+  if (isFrozen) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div className="background-effects">
+          <div className="glow-orb orb-1"></div>
+          <div className="glow-orb orb-2"></div>
+        </div>
+        <div className="glass-card fade-in visible" style={{ maxWidth: '450px', width: '100%', textAlign: 'center', padding: '3rem 2rem' }}>
+          <div style={{ fontSize: '5rem', marginBottom: '1.5rem' }}>❄️</div>
+          <h2 style={{ color: '#ef4444', marginBottom: '1rem' }}>Akun Anda Dibekukan</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: '1.6' }}>
+            Akun Anda telah dibekukan oleh Admin karena adanya laporan kendala. 
+            Anda tidak dapat mengakses dashboard driver sampai akun Anda dibuka kembali.
+          </p>
+          <a 
+            href="https://wa.me/6281234567890?text=Halo%20Admin,%20saya%20driver%20{driver?.name}%20ingin%20meminta%20pembukaan%20akun%20yang%20dibekukan."
+            target="_blank" 
+            rel="noreferrer"
+            className="btn btn-primary pulse"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', fontSize: '1rem', background: '#4ade80', color: 'black', border: 'none', marginBottom: '1rem' }}
+          >
+            💬 Hubungi Admin via WhatsApp
+          </a>
+          <br/>
+          <button 
+            onClick={handleLogout} 
+            className="btn btn-secondary" 
+            style={{ marginTop: '1rem', border: 'none' }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ paddingTop: '80px', minHeight: '100vh', paddingBottom: '120px' }}>
       {clientError && (
@@ -427,75 +491,46 @@ export default function DriverDashboard() {
           Jastip<span>Driver</span>
         </div>
         <div className="nav-links" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {activeOrders.length > 0 ? (
-            <button 
-              className="btn btn-secondary" 
-              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px' }}
-              onClick={async () => {
-                const reason = prompt("Masukkan alasan kendala mendesak. PERINGATAN: Akun Anda akan dibekukan 30 hari. Anda harus menghubungi admin (Founder) untuk membuka kembali.");
-                if (reason) {
+          <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', color: isResting ? 'var(--text-secondary)' : '#4ade80', fontWeight: isResting ? 'normal' : 'bold' }}>Ready</span>
+            <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px', margin: 0 }}>
+              <input 
+                type="checkbox" 
+                checked={isResting}
+                onChange={async (e) => {
+                  const resting = e.target.checked;
+                  setIsResting(resting);
+                  if (driver) {
+                    const updatedDriver = { ...driver, current_task: resting ? 'Istirahat' : 'Ready' };
+                    setDriver(updatedDriver);
+                    localStorage.setItem("jastip_driver_session", JSON.stringify(updatedDriver));
+                  }
                   try {
                     await fetch('/api/drivers', {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                         id: driver.id,
-                        status: 'frozen',
-                        vehicle: (driver.vehicle || '') + ` | NOTES: ${reason}`
+                        current_task: resting ? 'Istirahat' : 'Ready'
                       })
                     });
-                    alert("Akun berhasil dibekukan.");
-                    handleLogout();
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }
-              }}
-            >
-              🆘 Kendala Mendesak
-            </button>
-          ) : (
-            <div style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '6px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.8rem', color: isResting ? 'var(--text-secondary)' : '#4ade80', fontWeight: isResting ? 'normal' : 'bold' }}>Ready</span>
-              <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '18px', margin: 0 }}>
-                <input 
-                  type="checkbox" 
-                  checked={isResting}
-                  onChange={async (e) => {
-                    const resting = e.target.checked;
-                    setIsResting(resting);
-                    if (driver) {
-                      const updatedDriver = { ...driver, current_task: resting ? 'Istirahat' : 'Ready' };
-                      setDriver(updatedDriver);
-                      localStorage.setItem("jastip_driver_session", JSON.stringify(updatedDriver));
-                    }
-                    try {
-                      await fetch('/api/drivers', {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          id: driver.id,
-                          current_task: resting ? 'Istirahat' : 'Ready'
-                        })
-                      });
-                    } catch (err) {}
-                  }}
-                  style={{ opacity: 0, width: 0, height: 0 }} 
-                />
-                <span className="slider round" style={{ 
-                  position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
-                  backgroundColor: isResting ? '#ffbd2e' : '#4ade80', 
-                  transition: '.4s', borderRadius: '24px' 
-                }}>
-                  <span style={{
-                    position: 'absolute', content: '""', height: '12px', width: '12px', left: isResting ? '20px' : '3px', bottom: '3px',
-                    backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
-                  }}></span>
-                </span>
-              </label>
-              <span style={{ fontSize: '0.8rem', color: isResting ? '#ffbd2e' : 'var(--text-secondary)', fontWeight: isResting ? 'bold' : 'normal' }}>Istirahat</span>
-            </div>
-          )}
+                  } catch (err) {}
+                }}
+                style={{ opacity: 0, width: 0, height: 0 }} 
+              />
+              <span className="slider round" style={{ 
+                position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, 
+                backgroundColor: isResting ? '#ffbd2e' : '#4ade80', 
+                transition: '.4s', borderRadius: '24px' 
+              }}>
+                <span style={{
+                  position: 'absolute', content: '""', height: '12px', width: '12px', left: isResting ? '20px' : '3px', bottom: '3px',
+                  backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
+                }}></span>
+              </span>
+            </label>
+            <span style={{ fontSize: '0.8rem', color: isResting ? '#ffbd2e' : 'var(--text-secondary)', fontWeight: isResting ? 'bold' : 'normal' }}>Istirahat</span>
+          </div>
 
           <button onClick={() => setShowSubModal(true)} className="btn btn-primary" style={{ border: 'none', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>Langganan Saya</button>
           <button onClick={handleLogout} className="btn btn-secondary" style={{ border: 'none' }}>Logout</button>

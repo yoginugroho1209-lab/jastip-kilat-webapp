@@ -43,6 +43,7 @@ export async function PATCH(request: Request) {
   const updateData: any = {};
   if (status !== undefined) updateData.status = status;
   if (current_task !== undefined) updateData.current_task = current_task;
+  if (body.vehicle !== undefined) updateData.vehicle = body.vehicle;
 
   const { data, error } = await supabase
     .from('drivers')

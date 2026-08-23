@@ -386,6 +386,51 @@ export default function FounderDashboard() {
               })}
               {drivers.filter(d => d.status === "pending").length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Tidak ada pendaftar baru.</p>}
             </div>
+            <h4 style={{ color: '#ffbd2e', marginBottom: '1rem', marginTop: '3rem' }}>⚠️ Laporan Kendala (SOS & Customer)</h4>
+            <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
+              {drivers.filter(d => (d.vehicle || '').includes('| SOS:') || (d.vehicle || '').includes('| LAPORAN:')).filter(d => d.status !== 'frozen').map(d => {
+                const vehicleStr = d.vehicle || '';
+                const hasSos = vehicleStr.includes('| SOS:');
+                const hasLaporan = vehicleStr.includes('| LAPORAN:');
+                let reason = "Kendala tidak diketahui";
+                if (hasSos) reason = `[SOS Driver] ${vehicleStr.split('| SOS:')[1].split('|')[0].trim()}`;
+                if (hasLaporan) reason = `[Laporan Customer] ${vehicleStr.split('| LAPORAN:')[1].split('|')[0].trim()}`;
+
+                return (
+                  <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255, 189, 46, 0.05)', border: '1px solid rgba(255, 189, 46, 0.3)', padding: '1.5rem', borderRadius: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: '0 0 4px 0', color: 'white' }}>{d.name}</h3>
+                      <p style={{ margin: '0 0 4px 0', color: 'var(--text-secondary)' }}>WA: {d.phone}</p>
+                      <p style={{ margin: 0, color: '#ffbd2e', fontWeight: 'bold' }}>{reason}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                      <button 
+                        onClick={async () => {
+                          if (confirm(`Yakin ingin membekukan akun ${d.name}?`)) {
+                            try {
+                              await fetch('/api/drivers', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: d.id, status: 'frozen' })
+                              });
+                              alert(`Akun ${d.name} berhasil dibekukan.`);
+                              fetchData();
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }
+                        }} 
+                        className="btn btn-primary pulse" 
+                        style={{ background: '#ef4444', color: 'white', padding: '6px 12px', fontSize: '0.8rem', flex: 1, textAlign: 'center', border: 'none', cursor: 'pointer' }}
+                      >
+                        ❄️ Bekukan Akun
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {drivers.filter(d => (d.vehicle || '').includes('| SOS:') || (d.vehicle || '').includes('| LAPORAN:')).filter(d => d.status !== 'frozen').length === 0 && <p style={{ color: 'var(--text-secondary)' }}>Tidak ada laporan kendala.</p>}
+            </div>
 
             <h4 style={{ color: '#ef4444', marginBottom: '1rem', marginTop: '3rem' }}>Driver Dibekukan (Terkendala)</h4>
             <div style={{ display: 'grid', gap: '1rem', marginBottom: '3rem' }}>

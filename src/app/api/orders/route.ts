@@ -28,7 +28,7 @@ export async function GET() {
 // POST new order (useful for Customer Checkout)
 export async function POST(request: Request) {
   const body = await request.json();
-  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items, driver_name, total_menu_price } = body;
+  const { customer_name, customer_phone, dropoff_address, delivery_fee, sequence, items, driver_name, total_menu_price, status } = body;
 
   // Calculate platform fee: Rp 500 per item piece
   const totalPcs = (items || []).reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       dropoff_address,
       delivery_fee,
       sequence,
-      status: 'pending'
+      status: status || 'pending'
     })
     .select()
     .single();

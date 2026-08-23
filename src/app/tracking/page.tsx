@@ -241,6 +241,41 @@ export default function TrackingPage() {
             </div>
           </div>
 
+          {/* Laporkan Kendala Button */}
+          {currentNode < 3 && orderData?.driver_id && (
+            <div style={{ textAlign: 'center' }}>
+              <button
+                className="btn btn-secondary"
+                style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '10px 20px', borderRadius: '8px' }}
+                onClick={async () => {
+                  const reason = prompt("Silakan masukkan keluhan/kendala Anda (misal: Driver tidak bisa dihubungi lebih dari 2 jam):");
+                  if (reason) {
+                    try {
+                      const res = await fetch(`/api/drivers?id=${orderData.driver_id}`);
+                      const driver = await res.json();
+                      if (driver && driver.id) {
+                        await fetch('/api/drivers', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            id: driver.id,
+                            vehicle: (driver.vehicle || '') + ` | LAPORAN: ${reason}`
+                          })
+                        });
+                        alert("Laporan berhasil dikirim ke Admin. Kami akan segera menindaklanjuti.");
+                      }
+                    } catch (err) {
+                      console.error("Gagal mengirim laporan:", err);
+                      alert("Terjadi kesalahan saat mengirim laporan.");
+                    }
+                  }
+                }}
+              >
+                ⚠️ Laporkan Kendala
+              </button>
+            </div>
+          )}
+
           {/* Post-Delivery Rating Section */}
           {currentNode === 3 && (
             <div className="post-delivery fade-in visible" style={{ background: 'rgba(255,255,255,0.02)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--accent-primary)', textAlign: 'center' }}>

@@ -310,11 +310,11 @@ export default function OrderPage() {
       let orderId = "";
 
       if (negotiationOrderId) {
-        // If order already exists (from negotiation), just patch it to 'pending'
+        // If order already exists (from negotiation), patch it to 'accepted' (auto-accept after payment)
         const res = await fetch(`/api/orders/${negotiationOrderId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'pending' })
+          body: JSON.stringify({ status: 'accepted' })
         });
         const orderData = await res.json();
         if (orderData && !orderData.error) {
@@ -324,7 +324,7 @@ export default function OrderPage() {
           return;
         }
       } else {
-        // Normal flow (no negotiation), create new order as 'pending'
+        // Normal flow (no negotiation), create new order as 'accepted' (auto-accept)
         const orderPayload = {
           customer_name: customerName || "Customer Guest",
           customer_phone: customerPhone || "08000000000",
@@ -333,6 +333,7 @@ export default function OrderPage() {
           total_menu_price: totalMenuPrice,
           driver_name: selectedDriver?.name || null,
           sequence: 1,
+          status: 'accepted',
           items: cart.map(c => ({
             menu_id: c.id,
             quantity: c.quantity,
