@@ -66,6 +66,11 @@ export default function DriverDashboard() {
       return;
     }
     
+    // Set initial resting state
+    if (session.current_task === 'Istirahat') {
+      setIsResting(true);
+    }
+    
     setDriver(session);
 
     const handleErr = (msg: any, url: any, line: any, col: any, error: any) => {
@@ -117,6 +122,21 @@ export default function DriverDashboard() {
         localStorage.removeItem("jastip_driver_session");
         router.push("/driver/login");
         return;
+      }
+      
+      // Sync resting status
+      if (statusData && statusData.current_task) {
+        const isCurrentlyResting = statusData.current_task === 'Istirahat';
+        setIsResting(isCurrentlyResting);
+        // Update local session
+        const sessionStr = localStorage.getItem("jastip_driver_session");
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          if (session.current_task !== statusData.current_task) {
+            session.current_task = statusData.current_task;
+            localStorage.setItem("jastip_driver_session", JSON.stringify(session));
+          }
+        }
       }
 
       const res = await fetch('/api/orders');
@@ -429,6 +449,13 @@ export default function DriverDashboard() {
                   onChange={async (e) => {
                     const resting = e.target.checked;
                     setIsResting(resting);
+                    
+                    // Update local storage so it persists on refresh
+                    if (driver) {
+                      const updatedDriver = { ...driver, current_task: resting ? 'Istirahat' : 'Ready' };
+                      setDriver(updatedDriver);
+                      localStorage.setItem("jastip_driver_session", JSON.stringify(updatedDriver));
+                    }
                     
                     // Update backend status real-time
                     try {
