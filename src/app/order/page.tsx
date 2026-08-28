@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Map, { Marker } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import "../landing.css"; // Reuse the same styles
+import { supabase } from "@/utils/supabase/client";
 
 type MenuCategory = "Makanan" | "Dimsum" | "Minuman";
 
@@ -50,35 +51,6 @@ export default function OrderPage() {
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [approvalCountdown, setApprovalCountdown] = useState(60);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (paymentStep === "negotiating" && approvalCountdown > 0) {
-      timer = setInterval(() => {
-        setApprovalCountdown(prev => prev - 1);
-      }, 1000);
-    } else if (paymentStep === "negotiating" && approvalCountdown === 0) {
-      setPaymentStep("rejected");
-    }
-    return () => clearInterval(timer);
-  }, [paymentStep, approvalCountdown]);
-
-  useEffect(() => {
-    if (paymentStep === "negotiating" && negotiationOrderId) {
-      const channel = supabase.channel(`order_${negotiationOrderId}`)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${negotiationOrderId}` }, (payload) => {
-          if (payload.new.status === 'menunggu_pembayaran') {
-            setPaymentStep("qris"); // proceed to payment
-          } else if (payload.new.status === 'rejected' || payload.new.status === 'cancelled') {
-            setPaymentStep("rejected");
-          }
-        })
-        .subscribe();
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [paymentStep, negotiationOrderId]);
 
   // API Data States
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -213,6 +185,35 @@ export default function OrderPage() {
   const [paymentStep, setPaymentStep] = useState<"cart" | "qris" | "negotiating" | "rejected">("cart");
   const [negotiationOrderId, setNegotiationOrderId] = useState<string | null>(null);
   const [negotiationStartTime, setNegotiationStartTime] = useState<number>(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (paymentStep === "negotiating" && approvalCountdown > 0) {
+      timer = setInterval(() => {
+        setApprovalCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (paymentStep === "negotiating" && approvalCountdown === 0) {
+      setPaymentStep("rejected");
+    }
+    return () => clearInterval(timer);
+  }, [paymentStep, approvalCountdown]);
+
+  useEffect(() => {
+    if (paymentStep === "negotiating" && negotiationOrderId) {
+      const channel = supabase.channel(`order_${negotiationOrderId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${negotiationOrderId}` }, (payload) => {
+          if (payload.new.status === 'menunggu_pembayaran') {
+            setPaymentStep("qris"); // proceed to payment
+          } else if (payload.new.status === 'rejected' || payload.new.status === 'cancelled') {
+            setPaymentStep("rejected");
+          }
+        })
+        .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [paymentStep, negotiationOrderId]);
 
   const handlePesanLagi = (hist: any) => {
     // Populate form data
