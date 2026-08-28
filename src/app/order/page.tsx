@@ -49,6 +49,36 @@ export default function OrderPage() {
   const [mounted, setMounted] = useState(false);
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [approvalCountdown, setApprovalCountdown] = useState(60);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (paymentStep === "negotiating" && approvalCountdown > 0) {
+      timer = setInterval(() => {
+        setApprovalCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (paymentStep === "negotiating" && approvalCountdown === 0) {
+      setPaymentStep("rejected");
+    }
+    return () => clearInterval(timer);
+  }, [paymentStep, approvalCountdown]);
+
+  useEffect(() => {
+    if (paymentStep === "negotiating" && negotiationOrderId) {
+      const channel = supabase.channel(`order_${negotiationOrderId}`)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${negotiationOrderId}` }, (payload) => {
+          if (payload.new.status === 'menunggu_pembayaran') {
+            setPaymentStep("qris"); // proceed to payment
+          } else if (payload.new.status === 'rejected' || payload.new.status === 'cancelled') {
+            setPaymentStep("rejected");
+          }
+        })
+        .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [paymentStep, negotiationOrderId]);
 
   // API Data States
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -112,6 +142,19 @@ export default function OrderPage() {
       setLoadingData(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+    const channel = supabase.channel('public:drivers')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, () => {
+        fetchData();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchData]);
 
   // Fetch order history from API
   const fetchHistory = useCallback(async () => {
@@ -232,6 +275,7 @@ export default function OrderPage() {
   const [customizeQuantity, setCustomizeQuantity] = useState(1);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [hasWarnedLargeQuantity, setHasWarnedLargeQuantity] = useState(false);
+  const hasWarnedLargeQuantityRef = useRef(false);
   const [showCheckoutConfirmModal, setShowCheckoutConfirmModal] = useState(false);
 
   // Checkout Form States
@@ -291,7 +335,7 @@ export default function OrderPage() {
   };
 
   const checkCategoryWarning = (newCart: CartItem[]) => {
-    if (hasWarnedLargeQuantity) return;
+    if (hasWarnedLargeQuantityRef.current) return;
     const catCount: Record<string, number> = {};
     newCart.forEach(item => {
       const cat = item.category || 'Lainnya';
@@ -352,6 +396,7 @@ export default function OrderPage() {
 
   const handleConfirmLargeCheckout = async () => {
     setShowCheckoutConfirmModal(false);
+    setIsCheckoutOpen(false); // Close the checkout modal so it doesn't block the screen
     
     if (!selectedDriver) return;
 
@@ -383,6 +428,7 @@ export default function OrderPage() {
           setNegotiationOrderId(orderData.id);
           setNegotiationStartTime(Date.now());
           setPaymentStep("negotiating");
+          setApprovalCountdown(60); // Start 60 second countdown
         } else {
           alert("Gagal mengirim permintaan negosiasi: " + (orderData?.error || "Unknown error"));
         }
@@ -751,6 +797,7 @@ export default function OrderPage() {
             <button className="btn btn-primary btn-block" onClick={() => {
               setShowWarningModal(false);
               setHasWarnedLargeQuantity(true);
+              hasWarnedLargeQuantityRef.current = true;
             }}>
               Saya Mengerti
             </button>
@@ -980,50 +1027,11 @@ export default function OrderPage() {
                 <div className="form-group">
                   <textarea required value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} placeholder="Alamat Terlengkap & Titik Taruh (Misal: Kos Kuning Jl. Banjarsari No 10, tolong ditaruh di gerbang hitam / titip satpam)" rows={3}></textarea>
                 </div>
-
-                <button type="submit" className="btn btn-primary btn-block">
+              <button type="submit" className="btn btn-primary btn-block">
                   {hasLargeCategory ? "Konfirmasi ke Driver (Kuantitas Besar)" : "Bayar via QRIS Sekarang"}
                 </button>
               </form>
               </>
-              ) : paymentStep === "negotiating" ? (
-                <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-                  <div className="spinner" style={{ 
-                    width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.1)', 
-                    borderTopColor: '#facc15', borderRadius: '50%', animation: 'spin 1s linear infinite', 
-                    margin: '0 auto 1.5rem auto' 
-                  }}></div>
-                  <style dangerouslySetInnerHTML={{__html: `
-                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                  `}} />
-                  <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Menunggu Persetujuan Driver...</h3>
-                  <p style={{ color: 'var(--text-secondary)' }}>Pesanan Anda mengandung terlalu banyak item dalam satu kategori. Kami sedang meminta kesediaan driver untuk membawanya.</p>
-                </div>
-              ) : paymentStep === "rejected" ? (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
-                  <h3 style={{ color: '#ff5f56', marginBottom: '1rem' }}>Driver Tidak Tersedia / Menolak</h3>
-                  <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-                    Maaf, driver tidak dapat menerima pesanan dengan jumlah ini, atau waktu tunggu persetujuan (1 menit) telah habis. 
-                    Silakan kurangi jumlah pesanan Anda atau coba pilih driver lain yang mungkin bersedia.
-                  </p>
-                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                    <button className="btn btn-secondary" onClick={() => {
-                      setPaymentStep("cart");
-                      setNegotiationOrderId(null);
-                    }}>
-                      Kurangi Item
-                    </button>
-                    <button className="btn btn-primary" onClick={() => {
-                      setPaymentStep("cart");
-                      setIsCheckoutOpen(false);
-                      setSelectedDriver(null);
-                      setNegotiationOrderId(null);
-                    }}>
-                      Pilih Driver Lain
-                    </button>
-                  </div>
-                </div>
               ) : (
                 <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
                   <div style={{ background: 'white', padding: '1rem', borderRadius: '16px', display: 'inline-block', marginBottom: '1.5rem' }}>
@@ -1043,6 +1051,46 @@ export default function OrderPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Negotiation & Rejected Modals separated from Checkout Modal */}
+      {(paymentStep === "negotiating" || paymentStep === "rejected") && (
+        <div className="modal-overlay" style={{ zIndex: 300 }}>
+          <div className="modal-content glass-card fade-in visible" style={{ maxWidth: '400px', margin: 'auto' }}>
+            {paymentStep === "negotiating" ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <div className="spinner" style={{ 
+                  width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.1)', 
+                  borderTopColor: '#facc15', borderRadius: '50%', animation: 'spin 1s linear infinite', 
+                  margin: '0 auto 1.5rem auto' 
+                }}></div>
+                <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Menunggu Konfirmasi Driver</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Pesanan Anda diteruskan ke driver. Mohon tunggu persetujuan.</p>
+                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'white' }}>
+                  {approvalCountdown} <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>detik</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⏳</div>
+                <h3 style={{ color: '#ff5f56', marginBottom: '1rem' }}>Waktu Habis / Ditolak</h3>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+                  Waktu tunggu 1 menit telah habis atau driver menolak pesanan Anda. Silakan pilih driver lain.
+                </p>
+                <button className="btn btn-primary btn-block" onClick={async () => {
+                  if (negotiationOrderId) {
+                    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', negotiationOrderId);
+                  }
+                  setPaymentStep("cart");
+                  setSelectedDriver(null);
+                  setNegotiationOrderId(null);
+                }}>
+                  Pilih Driver Lain
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

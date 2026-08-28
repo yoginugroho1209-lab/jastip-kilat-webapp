@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
   const router = useRouter();
   const [currentNode, setCurrentNode] = useState(0);
+  const tapCountRef = useRef(0);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Scroll Animation Observer
@@ -205,7 +207,28 @@ export default function Home() {
 
       <footer>
         <div className="footer-content">
-          <div className="footer-logo">
+          <div 
+            className="footer-logo"
+            onClick={(e) => {
+              if (e.ctrlKey || e.metaKey) {
+                router.push('/founder');
+                return;
+              }
+              
+              tapCountRef.current += 1;
+              if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+              
+              if (tapCountRef.current >= 5) {
+                tapCountRef.current = 0;
+                router.push('/founder');
+              } else {
+                tapTimeoutRef.current = setTimeout(() => {
+                  tapCountRef.current = 0;
+                }, 500); // reset if taps are more than 500ms apart
+              }
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             Jastip<span>Kilat</span>
           </div>
           <p 
