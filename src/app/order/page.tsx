@@ -353,6 +353,8 @@ export default function OrderPage() {
   const handleConfirmLargeCheckout = async () => {
     setShowCheckoutConfirmModal(false);
     
+    if (!selectedDriver) return;
+
     const orderPayload = {
       customer_name: customerName || "Customer Guest",
         customer_phone: customerPhone || "08000000000",
