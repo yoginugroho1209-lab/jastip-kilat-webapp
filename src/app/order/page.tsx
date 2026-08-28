@@ -335,14 +335,23 @@ export default function OrderPage() {
     closeCustomizeModal();
   };
 
-  const checkCategoryWarning = (newCart: CartItem[]) => {
+  const checkCategoryWarning = (prevCart: CartItem[], newCart: CartItem[]) => {
     if (hasWarnedLargeQuantityRef.current) return;
-    const catCount: Record<string, number> = {};
+    const catCountPrev: Record<string, number> = {};
+    const catCountNew: Record<string, number> = {};
+    
+    prevCart.forEach(item => {
+      const cat = item.category || 'Lainnya';
+      catCountPrev[cat] = (catCountPrev[cat] || 0) + item.quantity;
+    });
+    
     newCart.forEach(item => {
       const cat = item.category || 'Lainnya';
-      catCount[cat] = (catCount[cat] || 0) + item.quantity;
+      catCountNew[cat] = (catCountNew[cat] || 0) + item.quantity;
     });
-    if (Object.values(catCount).some(count => count >= 3)) {
+    
+    // Trigger only if crossing the threshold (from <3 to >=3)
+    if (Object.keys(catCountNew).some(cat => (catCountPrev[cat] || 0) < 3 && catCountNew[cat] >= 3)) {
       setShowWarningModal(true);
     }
   };
@@ -353,7 +362,7 @@ export default function OrderPage() {
         item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
       );
       
-      checkCategoryWarning(newCart);
+      checkCategoryWarning(prev, newCart);
       return newCart;
     });
   };
@@ -770,7 +779,8 @@ export default function OrderPage() {
                     setCustomizeQuantity(nextQ);
                     
                     const catCount = cart.filter(i => i.category === activeCustomizeMenu.category).reduce((acc, curr) => acc + curr.quantity, 0);
-                    if (catCount + nextQ >= 3) {
+                    // Only warn when crossing exactly the threshold of 3
+                    if (catCount + nextQ === 3) {
                       setShowWarningModal(true);
                     }
                   }} style={{ width: '40px', height: '40px', padding: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
@@ -808,7 +818,7 @@ export default function OrderPage() {
 
       {/* Checkout Confirm Large Quantity Modal */}
       {showCheckoutConfirmModal && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" style={{ zIndex: 300 }}>
           <div className="modal-content glass-card fade-in visible" style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }}>🤔</div>
             <h3 style={{ color: '#facc15', marginBottom: '1rem' }}>Konfirmasi Pesanan Besar</h3>
